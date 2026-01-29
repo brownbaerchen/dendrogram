@@ -1,0 +1,16 @@
+---
+
+name: dendro
+channels:
+  - conda-forge
+dependencies:
+  - numpy
+  - scipy
+  - pytorch
+  - heat
+  - matplotlib
+  - jupyter
+  - jupytext
+  - pip
+  - pip:
+    - astrodendro
