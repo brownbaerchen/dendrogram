@@ -12,7 +12,7 @@ from scipy.cluster.hierarchy import linkage, cut_tree
 from astrodendro import Dendrogram
 
 # %% [markdown]
-# Next, let's define some data with some some exponential peaks
+# Next, let's define some data with some some Gaussian peaks
 
 # %%
 x = np.linspace(0, 1, 256)
