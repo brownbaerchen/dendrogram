@@ -80,7 +80,7 @@ deriv = np.append(
 )
 sign = np.sign(deriv)
 sign_change = np.cumsum(np.append([0], -(sign[1:] / sign[:-1] - 1) / 2))
-dissimilarity = sign_change - sign_change % 2
+dissimilarity = (sign_change - sign_change % 2) / 2
 
 fig, ax = plt.subplots()
 ax2 = ax.twinx()
