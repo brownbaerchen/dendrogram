@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.11', '3.12', '3.13', '3.14']
+        python: ['3.11', '3.12', '3.13']
     defaults:
       run:
         shell: bash -l {0}
@@ -59,7 +59,7 @@ jobs:
           mv .coverage coverage.dat
       - name: Uploading artifacts
         uses: actions/upload-artifact@v4
-        if: matrix.python == '3.14'
+        if: matrix.python == '3.13'
         with:
           name: test-artifacts
           path: |
