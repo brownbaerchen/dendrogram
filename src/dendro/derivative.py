@@ -50,6 +50,5 @@ def find_minima(grids, data, axis=0):
     deriv = compute_derivative(grids, data, axis)
     second_deriv = compute_derivative(grids, deriv, axis)
     extrema = find_extrema(deriv)
-    minima = np.logical_and(extrema, second_deriv >0)
+    minima = np.logical_and(extrema, second_deriv > 0)
     return minima
-

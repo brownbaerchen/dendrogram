@@ -60,6 +60,7 @@ def test_find_extrema(f):
     expect_extrema = ((f * x) % (np.pi / 2)) <= tols[f] * x[1]
     assert np.allclose(expect_extrema, extrema)
 
+
 @pytest.mark.parametrize("f", [1, 2, 4])
 def test_find_minima(f):
     import numpy as np
@@ -72,7 +73,7 @@ def test_find_minima(f):
     minima = find_minima([x], data)
     tols = {1: 0.9, 2: 1.6, 4: 3.6}
     expect_extrema = ((f * x) % (np.pi)) <= tols[f] * x[1]
-    assert np.allclose(expect_extrema, minima, atol=2*x[1])
+    assert np.allclose(expect_extrema, minima, atol=2 * x[1])
 
 
 if __name__ == "__main__":
