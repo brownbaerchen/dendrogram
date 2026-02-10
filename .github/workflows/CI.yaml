@@ -1,0 +1,68 @@
+name: CI pipeline
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      YML: 'environment.yml'
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Install Conda environment with Micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: ${{ env.YML }}
+          create-args: >-
+              python=3.13
+      - name: Code reformatting with black
+        run: |
+          black src  --check --diff --color
+      - name: Linting with ruff
+        run: |
+          ruff check pySDC
+
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14']
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Conda environment with Micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: "environment.yml"
+          create-args: >-
+              python=${{ matrix.python }}
+      - name: Install dendro as a package in the current environment
+        run: |
+          pip install --no-deps -e .
+      - name: Run pytest
+        run: |
+          import coverage
+          coverage run -m pytest --continue-on-collection-errors -v --durations=0 tests
+      - name: Make coverage report
+        run: |
+          coverage combine
+          mv .coverage coverage.dat
+      - name: Uploading artifacts
+        uses: actions/upload-artifact@v4
+        if: matrix.python == '3.14'
+        with:
+          name: test-artifacts
+          path: |
+            data
+            coverage.dat
+

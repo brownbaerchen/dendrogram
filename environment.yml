@@ -12,6 +12,10 @@ dependencies:
   - jupyter
   - jupytext
   - pytest
+  - coverage
+  - black
+  - ruff
+
   - pip
   - pip:
     - astrodendro
