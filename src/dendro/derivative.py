@@ -1,4 +1,4 @@
-import numpy as np
+import heat as ht
 
 
 def get_slice(ndim):
@@ -11,13 +11,13 @@ def compute_derivative(grids, data, axis=0):
     s2[axis] = slice(None, data.shape[axis] - 2, None)
     s3[axis] = slice(2, None, None)
 
-    derivative = np.empty_like(data)
+    derivative = ht.empty_like(data)
     derivative[*s1] = (data[*s2] - data[*s3]) / (grids[axis][*s2] - grids[axis][*s3])
 
     # compute derivative at left boundary
     s1, s2 = get_slice(data.ndim), get_slice(data.ndim)
     s1[axis] = slice(0, 1, None)
-    s2[axis] = slice(1, 0, -1)
+    s2[axis] = slice(1, 2, None)
     derivative[*s1] = (data[*s1] - data[*s2]) / (grids[axis][*s1] - grids[axis][*s2])
 
     # compute derivative at right boundary
@@ -39,9 +39,9 @@ def find_extrema(derivative, axis=0):
     s2[axis] = slice(None, derivative.shape[axis] - 2, None)
     s3[axis] = slice(1, derivative.shape[axis] - 1, None)
 
-    sign = np.sign(derivative)
+    sign = ht.sign(derivative)
 
-    extrema = np.ones_like(derivative).astype(bool)
+    extrema = ht.ones_like(derivative).astype(bool)
     extrema[*s1] = sign[*s2] * sign[*s3] == -1
     return extrema
 
@@ -50,5 +50,5 @@ def find_minima(grids, data, axis=0):
     deriv = compute_derivative(grids, data, axis)
     second_deriv = compute_derivative(grids, deriv, axis)
     extrema = find_extrema(deriv)
-    minima = np.logical_and(extrema, second_deriv > 0)
+    minima = ht.logical_and(extrema, second_deriv > 0)
     return minima
