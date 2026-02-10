@@ -26,7 +26,7 @@ jobs:
           black src  --check --diff --color
       - name: Linting with ruff
         run: |
-          ruff check pySDC
+          ruff check src
 
   tests:
     runs-on: ubuntu-latest
