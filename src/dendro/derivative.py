@@ -44,3 +44,12 @@ def find_extrema(derivative, axis=0):
     extrema = np.ones_like(derivative).astype(bool)
     extrema[*s1] = sign[*s2] * sign[*s3] == -1
     return extrema
+
+
+def find_minima(grids, data, axis=0):
+    deriv = compute_derivative(grids, data, axis)
+    second_deriv = compute_derivative(grids, deriv, axis)
+    extrema = find_extrema(deriv)
+    minima = np.logical_and(extrema, second_deriv >0)
+    return minima
+
