@@ -18,6 +18,7 @@ In order to install all the necessary dependencies, please install micromamba an
 ```bash
 micromamba env create -f environment.yml
 micromamba activate dendro
+pip install -e .
 ```
 
 ## Generate Jupyter notebooks from scripts
