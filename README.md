@@ -1,3 +1,5 @@
+[![CI pipeline](https://github.com/brownbaerchen/dendrogram/actions/workflows/CI.yaml/badge.svg)](https://github.com/brownbaerchen/dendrogram/actions/workflows/CI.yaml)
+
 # Making Dendrograms with Heat
 
 This repository tracks progress for making dendrograms with [Heat](https://github.com/helmholtz-analytics/heat).
