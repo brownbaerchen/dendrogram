@@ -6,7 +6,7 @@ def test_derivative_2D():
     from dendro.derivative import compute_derivative
 
     x = np.linspace(0, 1, 64)
-    y = np.linspace(0, 1, 2)
+    y = np.linspace(0, 1, 64)
 
     X, Y = np.meshgrid(x, y, indexing="ij")
 
@@ -38,12 +38,12 @@ def test_derivative_2D():
     data = X**2
     expect_derivative = 2 * X
     derivative = compute_derivative([X, Y], data, axis=0)
-    assert np.allclose(expect_derivative[:, 1:-1], derivative[:, 1:-1])
+    assert np.allclose(expect_derivative[1:-1, :], derivative[1:-1, :])
 
     data = Y**2 * X**2
     expect_derivative = 2 * Y * X**2
     derivative = compute_derivative([X, Y], data, axis=1)
-    assert np.allclose(expect_derivative[1:-1, :], derivative[1:-1, :])
+    assert np.allclose(expect_derivative[:, 1:-1], derivative[:, 1:-1])
 
 
 @pytest.mark.parametrize("f", [1, 2, 4])
