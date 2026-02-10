@@ -28,11 +28,16 @@ def compute_derivative(grids, data, axis=0):
 
     return derivative
 
+
 def find_extrema(derivative, axis=0):
-    s1, s2, s3 = get_slice(derivative.ndim), get_slice(derivative.ndim), get_slice(derivative.ndim)
-    s1[axis] = slice(1, derivative.shape[axis]-1, None)
-    s2[axis] = slice(None, derivative.shape[axis]-2, None)
-    s3[axis] = slice(1, derivative.shape[axis]-1, None)
+    s1, s2, s3 = (
+        get_slice(derivative.ndim),
+        get_slice(derivative.ndim),
+        get_slice(derivative.ndim),
+    )
+    s1[axis] = slice(1, derivative.shape[axis] - 1, None)
+    s2[axis] = slice(None, derivative.shape[axis] - 2, None)
+    s3[axis] = slice(1, derivative.shape[axis] - 1, None)
 
     sign = np.sign(derivative)
 

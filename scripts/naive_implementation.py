@@ -11,7 +11,6 @@
 # %%
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.cluster.hierarchy import linkage, cut_tree
 from astrodendro import Dendrogram
 
 # %% [markdown]
@@ -96,7 +95,10 @@ minima_x = extrema_x[1::2]
 minima_y = extrema_y[1::2]
 
 fig, ax = plt.subplots()
+ax2 = ax.twinx()
 ax.plot(x, data, color="black")
+ax2.plot(x, deriv)
+ax.plot([None], [None], label="derivative")
 ax.scatter(extrema_x, extrema_y, label="Extrema", marker="o")
 ax.scatter(minima_x, minima_y, label="Minima", marker=".", color="red")
 ax.legend(frameon=False)
