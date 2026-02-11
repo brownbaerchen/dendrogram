@@ -76,5 +76,26 @@ def test_find_minima(f):
     assert ht.allclose(expect_extrema, minima)
 
 
+@pytest.mark.parametrize("f", [1, 2])
+def test_find_minima_2D(f):
+    import heat as ht
+    from dendro.derivative import find_minima, compute_derivative
+
+    x = ht.linspace(0, 2 * ht.pi, 32)
+    y = ht.linspace(0, 2 * ht.pi, 32)
+    X, Y = ht.meshgrid(x, y, indexing="ij")
+    data = ht.sin(f * X) ** 2 + ht.sin(f * Y) ** 2
+    deriv = compute_derivative([X, Y], data)
+
+    minima = {i: find_minima([X, Y], data, axis=i) for i in range(data.ndim)}
+    tols = {1: 0.9, 2: 1.6}
+    expect_extrema = {}
+    expect_extrema[0] = ((f * X) % (ht.pi)) <= tols[f] * x[1]
+    expect_extrema[1] = ((f * Y) % (ht.pi)) <= tols[f] * x[1]
+
+    for i in minima.keys():
+        assert ht.allclose(expect_extrema[i], minima[i])
+
+
 if __name__ == "__main__":
-    test_find_minima(1)
+    test_find_minima_2D(1)

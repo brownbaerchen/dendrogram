@@ -47,8 +47,8 @@ def find_extrema(derivative, axis=0):
 
 
 def find_minima(grids, data, axis=0):
-    deriv = compute_derivative(grids, data, axis)
-    second_deriv = compute_derivative(grids, deriv, axis)
-    extrema = find_extrema(deriv)
+    deriv = compute_derivative(grids, data, axis=axis)
+    second_deriv = compute_derivative(grids, deriv, axis=axis)
+    extrema = find_extrema(deriv, axis=axis)
     minima = ht.logical_and(extrema, second_deriv > 0)
     return minima
