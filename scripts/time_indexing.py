@@ -9,13 +9,16 @@ import matplotlib.pyplot as plt
 
 shape = (8, 4)
 
+
 def get_indices(shape):
-    return ht.arange(shape[0]//2) 
+    return ht.arange(shape[0] // 2)
+
 
 def get_mask(shape):
     mask = ht.zeros(shape=shape).astype(bool)
-    mask[:shape[0]//2, :] = True
+    mask[: shape[0] // 2, :] = True
     return mask
+
 
 def time_indexing(shape):
     data = ht.random.rand(*shape)
@@ -46,7 +49,13 @@ def time_indexing(shape):
     t1 = perf_counter()
     time_index_torch = t1 - t0
 
-    return {'heat mask': time_mask, 'heat index': time_index, 'torch mask': time_mask_torch, 'torch index': time_index_torch}
+    return {
+        "heat mask": time_mask,
+        "heat index": time_index,
+        "torch mask": time_mask_torch,
+        "torch index": time_index_torch,
+    }
+
 
 shapes = [(2**i, 4) for i in range(4, 21)]
 
@@ -58,10 +67,10 @@ for shape in shapes:
 
 for label in results[0].keys():
     plt.loglog([me[0] for me in shapes], [me[label] for me in results], label=label)
-plt.loglog([1e4, 1e6], [3e-5, 3e-3], color='black', label='linear', ls='--')
+plt.loglog([1e4, 1e6], [3e-5, 3e-3], color="black", label="linear", ls="--")
 plt.legend(frameon=False)
-plt.xlabel('N')
-plt.ylabel('time')
+plt.xlabel("N")
+plt.ylabel("time")
 
 # %% [markdown]
 # We have three main findings:
@@ -83,14 +92,14 @@ for shape in shapes:
 
 for label in results[0].keys():
     plt.loglog([me[0] for me in shapes], [me[label] for me in results], label=label)
-plt.loglog([1e2, 1e4], [3e-5, 3e-1], color='black', label='quadratic', ls='--')
+plt.loglog([1e2, 1e4], [3e-5, 3e-1], color="black", label="quadratic", ls="--")
 plt.legend(frameon=False)
-plt.xlabel('N')
-plt.ylabel('time')
+plt.xlabel("N")
+plt.ylabel("time")
 
 # %% [markdown]
 # Indeed, the scaling is now quadratic
 
 # %%
-if __name__ == '__main__':
+if __name__ == "__main__":
     plt.show()

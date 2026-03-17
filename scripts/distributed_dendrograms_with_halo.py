@@ -12,7 +12,7 @@ from dendro.utils import get_1d_data
 from astrodendro.dendrogram import Dendrogram
 
 x, data = get_1d_data(128)
-plt.plot(x.larray, data.larray, color='black')
+plt.plot(x.larray, data.larray, color="black")
 
 # %% [markdown]
 # Next, we are going to split up the data into chunks that we will compute the dendrograms independently on.
@@ -22,7 +22,9 @@ plt.plot(x.larray, data.larray, color='black')
 ntasks = 3
 elements_per_task = data.shape[0] // ntasks
 halo_size = 2
-local_slices = [slice(i*elements_per_task, (i+1)*elements_per_task) for i in range(ntasks)]
+local_slices = [
+    slice(i * elements_per_task, (i + 1) * elements_per_task) for i in range(ntasks)
+]
 for i in range(ntasks):
     start = i * elements_per_task
     stop = start + elements_per_task
@@ -33,11 +35,11 @@ for i in range(ntasks):
     local_slices[i] = slice(start, stop)
 
 
-plt.plot(x.larray, data.larray, color='black')
+plt.plot(x.larray, data.larray, color="black")
 for i in range(ntasks):
     s = local_slices[i]
-    marker = 'o' if i % 2 == 0 else 'x'
-    plt.scatter(x[s], data[s], marker=marker, label=f'Data on task {i}')
+    marker = "o" if i % 2 == 0 else "x"
+    plt.scatter(x[s], data[s], marker=marker, label=f"Data on task {i}")
 plt.legend(frameon=False)
 
 # %% [markdown]
@@ -48,27 +50,38 @@ plt.legend(frameon=False)
 
 local_dendrograms = [Dendrogram.compute(np.array(data[s].larray)) for s in local_slices]
 
+
 def add_offset_to_astrodendro_data(offset, leaves):
     for leaf in leaves:
         leaf._indices = np.array([index[0] + offset for index in leaf._indices])
         add_offset_to_astrodendro_data(offset, leaf._children)
+
+
 for i in range(ntasks):
-    add_offset_to_astrodendro_data(offset=local_slices[i].start, leaves=local_dendrograms[i].trunk)
+    add_offset_to_astrodendro_data(
+        offset=local_slices[i].start, leaves=local_dendrograms[i].trunk
+    )
 
 # %% [markdown]
 # Let's plot the local dendrograms
+
 
 # %%
 def plot_astrodendro_leaves(ax, leaves, level=0):
     markers = {0: ".", 1: "x", 2: ">", 3: "o", "4": "<"}
     for leaf in leaves:
-        ax.scatter(np.array(x)[leaf._indices], np.array(data)[leaf._indices], marker=markers[level])
+        ax.scatter(
+            np.array(x)[leaf._indices],
+            np.array(data)[leaf._indices],
+            marker=markers[level],
+        )
         plot_astrodendro_leaves(ax=ax, leaves=leaf._children, level=level + 1)
+
 
 fig, axs = plt.subplots(1, ntasks, sharey=True)
 for i in range(ntasks):
     ax = axs[i] if ntasks > 1 else axs
-    ax.plot(x[local_slices[i]].larray, data[local_slices[i]].larray, color='black')
+    ax.plot(x[local_slices[i]].larray, data[local_slices[i]].larray, color="black")
 
     plot_astrodendro_leaves(ax, local_dendrograms[i].trunk)
 
@@ -86,6 +99,7 @@ for i in range(ntasks):
 # %%
 from astrodendro.dendrogram import Structure
 
+
 def get_global_trunk(leaves):
     next_leaf_idx = []
     leaf_max = min([ht.max(data[leaf._indices]) for leaf in leaves])
@@ -99,12 +113,13 @@ def get_global_trunk(leaves):
     trunk = Structure(indices=next_leaf_idx, values=data[next_leaf_idx])
     return trunk
 
+
 leaves = [leaf for d in local_dendrograms for leaf in d.trunk]
 trunk = get_global_trunk(leaves)
 
 fig, ax = plt.subplots()
-ax.plot(x.larray, data.larray, color='black')
-ax.scatter(x[trunk._indices], data[trunk._indices], label='global trunk')
+ax.plot(x.larray, data.larray, color="black")
+ax.scatter(x[trunk._indices], data[trunk._indices], label="global trunk")
 
 # %% [markdown]
 # Let's see what is left of the local dendrograms that needs to be assigned to the global tree
@@ -113,7 +128,7 @@ ax.scatter(x[trunk._indices], data[trunk._indices], label='global trunk')
 fig, axs = plt.subplots(1, ntasks, sharey=True)
 for i in range(ntasks):
     ax = axs[i] if ntasks > 1 else axs
-    ax.plot(x[local_slices[i]].larray, data[local_slices[i]].larray, color='black')
+    ax.plot(x[local_slices[i]].larray, data[local_slices[i]].larray, color="black")
 
     plot_astrodendro_leaves(ax, local_dendrograms[i].trunk)
 
@@ -122,48 +137,70 @@ for i in range(ntasks):
 
 # First, we update the list of leaves to merge from:
 
+
 # %%
 def update_leaves(leaves):
-    return [me for leaf in leaves for me in ([leaf] if len(leaf._indices) > 0 else leaf.children)]
+    return [
+        me
+        for leaf in leaves
+        for me in ([leaf] if len(leaf._indices) > 0 else leaf.children)
+    ]
+
 
 leaves = update_leaves(leaves)
 
 fig, ax = plt.subplots()
-ax.plot(x.larray, data.larray, color='black')
+ax.plot(x.larray, data.larray, color="black")
 for i in range(len(leaves)):
-    marker = 'o' if i % 2 == 0 else 'x'
+    marker = "o" if i % 2 == 0 else "x"
     leaf = leaves[i]
-    ax.scatter(x[leaf._indices].larray, data[leaf._indices].larray, marker=marker, label=f'leaf {i}')
+    ax.scatter(
+        x[leaf._indices].larray,
+        data[leaf._indices].larray,
+        marker=marker,
+        label=f"leaf {i}",
+    )
 ax.legend(frameon=False)
 
 # %% [markdown]
 # Earlier, we used a halo to identify which structures belong to neighboring structures.
 # Let's next merge the neighboring structures
 
+
 # %%
 def merge_leaves(leaves):
     new_leaves = []
     for i in range(len(leaves) - 1):
-        intersection = [idx for idx in leaves[i]._indices if idx in leaves[i+1]._indices]
+        intersection = [
+            idx for idx in leaves[i]._indices if idx in leaves[i + 1]._indices
+        ]
         if len(intersection) == 0:
             new_leaves.append(leaves[i])
         else:
             leaves[i]._indices = np.append(leaves[i]._indices, intersection)
             new_leaves.append(leaves[i])
-            leaves[i+1]._indices = np.array([idx for idx in leaves[i+1]._indices if idx not in intersection])
-            if len(leaves[i+1]._indices == 0):
-                for child in leaves[i+1]._children:
+            leaves[i + 1]._indices = np.array(
+                [idx for idx in leaves[i + 1]._indices if idx not in intersection]
+            )
+            if len(leaves[i + 1]._indices == 0):
+                for child in leaves[i + 1]._children:
                     new_leaves.append(child)
     return new_leaves
+
 
 leafes = merge_leaves(leaves)
 
 fig, ax = plt.subplots()
-ax.plot(x.larray, data.larray, color='black')
+ax.plot(x.larray, data.larray, color="black")
 for i in range(len(leaves)):
-    marker = 'o' if i % 2 == 0 else 'x'
+    marker = "o" if i % 2 == 0 else "x"
     leaf = leaves[i]
-    ax.scatter(x[leaf._indices].larray, data[leaf._indices].larray, marker=marker, label=f'leaf {i}')
+    ax.scatter(
+        x[leaf._indices].larray,
+        data[leaf._indices].larray,
+        marker=marker,
+        label=f"leaf {i}",
+    )
 ax.legend(frameon=False)
 
 
@@ -175,5 +212,5 @@ ax.legend(frameon=False)
 # %%
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     plt.show()
