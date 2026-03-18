@@ -120,7 +120,7 @@ plot_astrodendro_leaves(ax, global_dendrogram.trunk)
 # We are going to merge them successively from the top down.
 # Because of the halo, we have overlap between some leaves of the bottom dendrogram and the trunk and some branches of the top dendrogram.
 # Whenever a structure shares indices, it should be merged.
-# We need to take some care because the trunk and some of it's children may need to be merged to the same structure, but otherwise, we can simply merge and then glue the children of the top part of the structure onto the merged structure.
+# We need to take some care because the trunk and some of its children may need to be merged to the same structure, but otherwise, we can simply merge and then glue the children of the top part of the structure onto the merged structure.
 
 # %%
 merged_dendrogram = local_dendrograms[-1]
@@ -181,14 +181,8 @@ axs[0].set_title("Starting dendrogram")
 for i in range(1, ntasks):
     merged_dendrogram = merge_dendrograms(merged_dendrogram, local_dendrograms[-i - 1])
     plot_astrodendro_leaves(axs[i], merged_dendrogram.trunk)
-    axs[i].set_title(f"Merged with task {ntasks - i}")
+    axs[i].set_title(f"Merged with task {ntasks - i -1}")
 
-# %% [markdown]
-# Let's see our merged dendrogram
-
-# %%
-fig, ax = plt.subplots()
-plot_astrodendro_leaves(ax, merged_dendrogram.trunk)
 
 # %% [markdown]
 # Now let's make sure that the merged dendrogram matches the global one exactly
