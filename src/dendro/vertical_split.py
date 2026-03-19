@@ -30,7 +30,7 @@ def _prepare_data_for_distribution(data):
     if isinstance(data, ht.DNDarray):
         import warnings
 
-        warnings.warn(f"Converting data to numpy in vertical distribution")
+        warnings.warn("Converting data to numpy in vertical distribution")
         data = data.numpy()
 
     return data.flatten()
