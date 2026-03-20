@@ -2,13 +2,15 @@
 # Adjacency in vertical splitting
 # ===============================
 
+# 1D
+# --
 # Let's start by doing some imports and defining the data
 
 # %%
 import heat as ht
 import numpy as np
 import matplotlib.pyplot as plt
-from dendro.utils import get_1d_data
+from dendro.utils import get_1d_data, get_2d_data
 from astrodendro.dendrogram import Dendrogram
 
 x, data = get_1d_data(128)
@@ -148,6 +150,79 @@ for i in range(ntasks):
 # Have a look at the second panel from the top, where the left and right parts of the structures are not assigned to the same structure anymore.
 # Now, in 1d, this is obviously not a problem.
 # We have solved the problem above, by computing the dendrogram only on the local data rather than on an array of the size of the global data with nans, but how do we do this in 2D?
+
+# 2D
+# --
+# Let's begin by constructing some 2D data and looking at the global dendrogram that we want to produce
+
+# %%
+X, Y, data = get_2d_data(64)
+X = X.numpy
+Y = Y.numpy
+data = data.numpy()
+
+global_dendrogram = Dendrogram.compute(data)
+
+
+def plot_astrodendro_tree(ax, plotter, leaves):
+    for leaf in leaves:
+        plotter.plot_contour(ax, structure=leaf)
+        plot_astrodendro_tree(ax, plotter, leaf.children)
+
+
+fig, axs = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(7, 3))
+axs[0].imshow(data)
+axs[1].imshow(data)
+plotter = global_dendrogram.plotter()
+plot_astrodendro_tree(axs[1], plotter, global_dendrogram.trunk)
+
+# %% [markdown]
+# We've seen above that we have to cut out values  here rather than setting them nan. So let's do that, however, we start by doing that only along one dimension for now.
+
+# %%
+elements_per_task = int(np.ceil(data.shape[0] / ntasks))
+local_slices = [
+    slice(i * elements_per_task, (i + 1) * elements_per_task) for i in range(ntasks)
+]
+for i in range(ntasks):
+    start = i * elements_per_task
+    stop = start + elements_per_task
+    if i > 0:
+        start -= halo_size
+    if i < ntasks - 1:
+        stop += halo_size
+    local_slices[i] = slice(start, stop)
+
+# %%
+idx = np.argsort(data)
+local_idx = [
+    np.sort(idx[..., s], axis=-1) for s in local_slices
+]  # we need to sort the indices to express adjacency for the subsequent dendrogram computation
+local_data = [
+    np.array([data[i][_idx[i]] for i in range(data.shape[0])]) for _idx in local_idx
+]
+
+# %%
+fig, axs = plt.subplots(1, ntasks, figsize=(ntasks * 2.5, 3))
+for i in range(ntasks):
+    axs[i].imshow(local_data[i], vmin=0, vmax=np.max(data))
+
+# %% [markdown]
+# We can see some non-smooth stripes in the images where we cut different parts in adjacent lines.
+# Let's compute the local dendrograms and see if this is an issue.
+
+# %%
+local_dendrograms = [Dendrogram.compute(local_data[i]) for i in range(ntasks)]
+
+# %%
+fig, axs = plt.subplots(1, ntasks, figsize=(ntasks * 2.5, 3))
+for i in range(ntasks):
+    axs[i].imshow(local_data[i], vmin=0, vmax=np.max(data))
+    plotter = local_dendrograms[i].plotter()
+    plot_astrodendro_tree(axs[i], plotter, local_dendrograms[i].trunk)
+
+# %% [markdown]
+# We get way too many structures because of the non-smoothness that we introduced. So this doesn't seem to be the solution..
 
 # %%
 if __name__ == "__main__":
