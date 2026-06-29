@@ -22,23 +22,13 @@ reference_dendrogram = Dendrogram.compute(data)
 
 # %% [markdown]
 # Next, we are going to split up the data into chunks that we will compute the dendrograms independently on.
-# We include a halo, so that we can later tell if we need to merge structures from adjacent dendrograms
 
 # %%
 ntasks = 2
 elements_per_task = data.shape[0] // ntasks
-halo_size = 0
 local_slices = [
     slice(i * elements_per_task, (i + 1) * elements_per_task) for i in range(ntasks)
 ]
-for i in range(ntasks):
-    start = i * elements_per_task
-    stop = start + elements_per_task
-    if i > 0:
-        start -= halo_size
-    if i < ntasks - 1:
-        stop += halo_size
-    local_slices[i] = slice(start, stop)
 
 
 plt.plot(x, data, color="black")
