@@ -84,30 +84,9 @@ plot_local_dendrograms(local_dendrograms)
 
 # %% [markdown]
 # Let's try and merge two adjacent dendrograms
-# We start by listing the ranges of all the structures
-# %%
-
-def get_structure_ranges(dendrogram):
-    return {s: (s._vmin, s._vmax) for s in dendrogram.all_structures}
-
-local_ranges = [get_structure_ranges(dendrogram) for dendrogram in local_dendrograms]
-
-def print_local_ranges(local_ranges):
-    print('Values in local structures range from ... to ...')
-    for i, ranges in enumerate(local_ranges):
-        print(f'Task {i}:')
-        for _range in ranges.values():
-            print(f'      {_range[0]:.2f} to {_range[1]:.2f}')
-print_local_ranges(local_ranges)
-
-# %% [markdown]
-# Let's start by chunking the structures.
+# First, we break apart the structures at every extreme point and then we merge them together again later.
 # This would involve gathering the data in a parallel setup.
 # %%
-
-all_ranges = []
-for _local_range in local_ranges:
-    all_ranges += list(_local_range.values())
 
 all_structures = []
 for dendrogram in local_dendrograms:
@@ -265,6 +244,7 @@ for structure in reference_dendrogram.all_structures:
 
 # %% [markdown]
 # Success!
+
 
 # %%
 if __name__ == "__main__":
