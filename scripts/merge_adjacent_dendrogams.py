@@ -46,7 +46,7 @@ local_dendrograms = [Dendrogram.compute(np.array(data[s])) for s in local_slices
 
 for i, dendrogram in enumerate(local_dendrograms):
     for structure in dendrogram.all_structures:
-        structure._indices = np.array(structure._indices).flatten() + local_slices[i].start
+        structure._indices = np.array(structure._indices) + local_slices[i].start
 
 # %% [markdown]
 # Let's plot the local dendrograms
@@ -103,13 +103,13 @@ for structure in all_structures:
             mask = values <= extremum
 
             chunk = indices[mask]
-            if chunk.shape != (0,):
+            if chunk.size != 0:
                 chunks.append(chunk)
 
             indices = indices[~mask]
             values = values[~mask]
 
-        if indices.shape != (0,):
+        if indices.size != 0:
             chunks.append(indices)
 
 print(f'Split the global dendrogram with {data.shape[0]} data points into {len(chunks)} chunks')
@@ -132,7 +132,7 @@ axs[1].set_title('Full dendrogram')
 # We can actually do a rigorous test that this the chunking satisfies this and also covers all data.
 
 # %%
-assert np.allclose(np.sort(np.concatenate(chunks)), np.arange(data.shape[0]))
+assert np.allclose(np.sort(np.concatenate(chunks)[:, 0]), np.arange(data.shape[0]))
 for structure in reference_dendrogram.all_structures:
     for chunk in chunks:
         if np.any(np.isin(chunk, structure._indices)):

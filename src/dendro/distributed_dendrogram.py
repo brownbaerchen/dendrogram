@@ -73,26 +73,29 @@ class DistributedDendrogram(Dendrogram):
                     mask = val <= extremum
 
                     chunk = idx[mask]
-                    if chunk.shape != (0,):
+                    if chunk.size != 0:
                         chunks.append(chunk)
 
                     idx = idx[~mask]
                     val = val[~mask]
 
-                if idx.shape != (0,):
+                if idx.size != 0:
                     chunks.append(idx)
 
         return chunks
 
     @staticmethod
     def sort_chunks(chunks, data):
-        chunk_max_vals = [np.max(data[chunk]) for chunk in chunks]
+        chunk_max_vals = [data[chunk].max() for chunk in chunks]
         return [chunks[i] for i in np.argsort(chunk_max_vals)[::-1]]
+
+    @staticmethod
+    def merge_local_structures(indices, values):
+        pass
 
     @staticmethod
     def is_adjacent(chunk, other):
         if isinstance(other, (list, type(chunk))):
-            assert chunk.ndim == 1
             if np.any(np.isin(chunk +1, other)):
                 return True
             elif np.any(np.isin(chunk -1, other)):

@@ -32,7 +32,7 @@ def test_1D(ntasks):
     # add offsets
     for i, dendrogram in enumerate(local_dendrograms):
         for structure in dendrogram.all_structures:
-            structure._indices = np.array(structure._indices).flatten() + local_slices[i].start
+            structure._indices = np.array(structure._indices) + local_slices[i].start
 
     # gather all structures
     all_structures = []
@@ -48,7 +48,7 @@ def test_1D(ntasks):
     chunks = DistributedDendrogram.chunk_local_structures(indices, values, local_extrema)
     chunks = DistributedDendrogram.sort_chunks(chunks, data)
 
-    assert np.allclose(np.sort(np.concatenate(chunks)), np.arange(data.shape[0]))
+    assert np.allclose(np.sort(np.concatenate(chunks)[:, 0]), np.arange(data.shape[0]))
     for structure in reference_dendrogram.all_structures:
         for chunk in chunks:
             if np.any(np.isin(chunk, structure._indices)):
