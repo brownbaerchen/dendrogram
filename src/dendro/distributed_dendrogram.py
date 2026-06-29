@@ -35,7 +35,7 @@ class DistributedDendrogram(Dendrogram):
 
         # add offsets to local indices
         _, offsets = data.counts_displs()
-        offset = np.zeros((1, 2), dtype=np.int)
+        offset = np.zeros((1, data.ndim), dtype=np.int)
         offset[data.split] = offsets[comm.rank]
         indices = [me + offset for me in indices]
 
@@ -86,14 +86,8 @@ class DistributedDendrogram(Dendrogram):
 
     @staticmethod
     def sort_chunks(chunks, data):
-        chunk_max_vals = [max(data[chunk]) for chunk in chunks]
+        chunk_max_vals = [np.max(data[chunk]) for chunk in chunks]
         return [chunks[i] for i in np.argsort(chunk_max_vals)[::-1]]
-
-
-
-    @staticmethod
-    def merge_local_structures(indices, values):
-        pass
 
     @staticmethod
     def is_adjacent(chunk, other):

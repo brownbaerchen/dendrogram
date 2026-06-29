@@ -44,17 +44,9 @@ plt.legend(frameon=False)
 
 local_dendrograms = [Dendrogram.compute(np.array(data[s])) for s in local_slices]
 
-
-def add_offset_to_astrodendro_data(offset, leaves):
-    for leaf in leaves:
-        leaf._indices = np.array([index[0] + offset for index in leaf._indices])
-        add_offset_to_astrodendro_data(offset, leaf._children)
-
-
-for i in range(ntasks):
-    add_offset_to_astrodendro_data(
-        offset=local_slices[i].start, leaves=local_dendrograms[i].trunk
-    )
+for i, dendrogram in enumerate(local_dendrograms):
+    for structure in dendrogram.all_structures:
+        structure._indices = np.array(structure._indices).flatten() + local_slices[i].start
 
 # %% [markdown]
 # Let's plot the local dendrograms

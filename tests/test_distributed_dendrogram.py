@@ -11,6 +11,7 @@ def test_1D():
     import numpy as np
     from astrodendro.dendrogram import Dendrogram
     from astrodendro.structure import Structure
+    from dendro.utils import get_1d_data
 
     x, data = get_1d_data(128)
     x = x.numpy()
@@ -26,21 +27,15 @@ def test_1D():
 
     local_dendrograms = [Dendrogram.compute(np.array(data[s])) for s in local_slices]
 
-    def add_offset_to_astrodendro_data(offset, leaves):
-        for leaf in leaves:
-            leaf._indices = np.array([index[0] + offset for index in leaf._indices])
-            add_offset_to_astrodendro_data(offset, leaf._children)
-
-    for i in range(ntasks):
-        add_offset_to_astrodendro_data(
-            offset=local_slices[i].start, leaves=local_dendrograms[i].trunk
-        )
+    for i, dendrogram in enumerate(local_dendrograms):
+        for structure in dendrogram.all_structures:
+            structure._indices = np.array(structure._indices).flatten() + local_slices[i].start
 
     all_structures = []
     for dendrogram in local_dendrograms:
         all_structures += [me for me in dendrogram.all_structures]
 
-    indices = [structure._indices for structure in all_structures]
+    indices = [np.array(structure._indices) for structure in all_structures]
     values = [structure._values for structure in all_structures]
     local_extrema = DistributedDendrogram.get_local_extrema(values)
 
