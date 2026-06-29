@@ -1,13 +1,15 @@
+import pytest
 from dendro.distributed_dendrogram import DistributedDendrogram
 
-def test_2D():
-    from dendro.utils import get_2d_data
+# def test_2D():
+#     from dendro.utils import get_2d_data
+# 
+#     X, Y, data = get_2d_data(64, 2)
+# 
+#     dendrogram = DistributedDendrogram.compute(data)
 
-    X, Y, data = get_2d_data(64, 2)
-
-    dendrogram = DistributedDendrogram.compute(data)
-
-def test_1D():
+@pytest.mark.parametrize("ntasks", [1, 2, 4])
+def test_1D(ntasks):
     import numpy as np
     from astrodendro.dendrogram import Dendrogram
     from astrodendro.structure import Structure
@@ -19,26 +21,30 @@ def test_1D():
 
     reference_dendrogram = Dendrogram.compute(data)
 
-    ntasks = 2
     elements_per_task = data.shape[0] // ntasks
     local_slices = [
         slice(i * elements_per_task, (i + 1) * elements_per_task) for i in range(ntasks)
     ]
 
+    # compute local dendrograms
     local_dendrograms = [Dendrogram.compute(np.array(data[s])) for s in local_slices]
 
+    # add offsets
     for i, dendrogram in enumerate(local_dendrograms):
         for structure in dendrogram.all_structures:
             structure._indices = np.array(structure._indices).flatten() + local_slices[i].start
 
+    # gather all structures
     all_structures = []
     for dendrogram in local_dendrograms:
         all_structures += [me for me in dendrogram.all_structures]
 
-    indices = [np.array(structure._indices) for structure in all_structures]
+    # isolate critical parts from structures
+    indices = [structure._indices for structure in all_structures]
     values = [structure._values for structure in all_structures]
     local_extrema = DistributedDendrogram.get_local_extrema(values)
 
+    # chunk data
     chunks = DistributedDendrogram.chunk_local_structures(indices, values, local_extrema)
     chunks = DistributedDendrogram.sort_chunks(chunks, data)
 
@@ -59,5 +65,5 @@ def test_1D():
 
 
 if __name__ == '__main__':
-    test_1D()
+    test_1D(2)
 
