@@ -30,12 +30,12 @@ class DistributedDendrogram(Dendrogram):
 
         # compute local dendrograms
         local_dendrogram = Dendrogram.compute(data.larray.numpy())
-        indices = [torch.tensor(structure._indices) for structure in local_dendrogram.all_structures]
-        values = [torch.tensor(structure._values) for structure in local_dendrogram.all_structures]
+        indices = [np.array(structure._indices) for structure in local_dendrogram.all_structures]
+        values = [np.array(structure._values) for structure in local_dendrogram.all_structures]
 
         # add offsets to local indices
         _, offsets = data.counts_displs()
-        offset = torch.zeros((1, 2), dtype=torch.int)
+        offset = np.zeros((1, 2), dtype=np.int)
         offset[data.split] = offsets[comm.rank]
         indices = [me + offset for me in indices]
 

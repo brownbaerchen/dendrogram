@@ -8,7 +8,6 @@ def test_2D():
     dendrogram = DistributedDendrogram.compute(data)
 
 def test_1D():
-    import heat as ht
     import numpy as np
     from astrodendro.dendrogram import Dendrogram
     from astrodendro.structure import Structure
