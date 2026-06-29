@@ -96,10 +96,14 @@ class DistributedDendrogram(Dendrogram):
     @staticmethod
     def is_adjacent(chunk, other):
         if isinstance(other, (list, type(chunk))):
-            if np.any(np.isin(chunk +1, other)):
-                return True
-            elif np.any(np.isin(chunk -1, other)):
-                return True
+            assert chunk.ndim == 2
+            for i in range(chunk.shape[1]):
+                one = np.zeros((1, chunk.shape[1]), dtype=int)
+                one[i] = 1
+                if np.any(np.isin(chunk + one, other)):
+                    return True
+                elif np.any(np.isin(chunk - one, other)):
+                    return True
             return False
         elif isinstance(other, Structure):
             if DistributedDendrogram.is_adjacent(chunk, other._indices):
