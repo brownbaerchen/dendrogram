@@ -21,12 +21,8 @@ jobs:
           environment-file: ${{ env.YML }}
           create-args: >-
               python=3.13
-      - name: Code reformatting with black
-        run: |
-          black src  --check --diff --color
-      - name: Linting with ruff
-        run: |
-          ruff check src
+      - name: Run pre-commit hooks
+        run: pre-commit run --all-files --show-diff-on-failure --color=always
 
   tests:
     runs-on: ubuntu-latest
@@ -65,4 +61,3 @@ jobs:
           path: |
             data
             coverage.dat
-
