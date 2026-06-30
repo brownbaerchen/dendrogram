@@ -394,6 +394,10 @@ values = [structure._values for structure in all_structures]
 chunks = DistributedDendrogram.chunk_local_structures(indices, values)
 chunks = DistributedDendrogram.sort_chunks(chunks, data)
 
+print(
+    f"Got {len(chunks)} chunks from {data.size} total data points. This means we can expect a speedup of S={data.size / (data.size / ntasks + len(chunks)):.2f} on {ntasks} tasks"
+)
+
 # %% [markdown]
 # Here are the chunks:
 
@@ -425,6 +429,7 @@ for structure in reference_dendrogram.all_structures:
 # %% [markdown]
 # We can see that the dendrograms are the same, which we can also rigorously verify.
 
+# %%
 compare_dendrograms(reference_dendrogram, merged_dendrogram)
 
 # %%
