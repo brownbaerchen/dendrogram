@@ -180,17 +180,72 @@ def test_2D_pseudo_parallel(ntasks, res, n_peaks):
         np.sort(np.concatenate(indices).flatten()),
     )
 
-    # for structure in reference_dendrogram.all_structures:
-    #     for chunk in chunks:
-    #         breakpoint()
-    #         if np.any(np.isin(chunk, structure._indices)):
-    #             assert np.all(np.isin(chunk, structure._indices))
-    # assert not DistributedDendrogram.is_adjacent(chunks[0], chunks[1])
-    # assert DistributedDendrogram.is_adjacent(chunks[0], chunks[2])
-
     merged_dendrogram = DistributedDendrogram.merge_chunks(chunks, data)
 
     compare_dendrograms(reference_dendrogram, merged_dendrogram)
+
+
+@pytest.mark.mpi(ranks=[1, 2])
+def test_2D(mpi_ranks, res=64, n_peaks=3):
+    from dendro.utils import get_2d_data
+
+    X, Y, data = get_2d_data(res, n_peaks)
+
+    dendrogram = DistributedDendrogram.compute(data)
+    reference_dendrogram = Dendrogram.compute(data.numpy())
+    compare_dendrograms(reference_dendrogram, dendrogram)
+
+
+@pytest.mark.mpi(ranks=[1, 2, 4])
+@pytest.mark.parametrize(
+    "res",
+    [
+        32,
+    ],
+)
+@pytest.mark.parametrize("n_peaks", [1, 2])
+def test_get_local_structures(mpi_ranks, res, n_peaks):
+    from dendro.utils import get_2d_data
+
+    X, Y, data = get_2d_data(res, n_peaks)
+    indices, values = DistributedDendrogram.get_local_structures(data)
+
+    # compute reference from global data
+    ntasks = data.comm.size
+    X = X.numpy()
+    Y = Y.numpy()
+    data = data.numpy()
+
+    elements_per_task = data.shape[0] // ntasks
+    local_slices = [
+        slice(i * elements_per_task, (i + 1) * elements_per_task) for i in range(ntasks)
+    ]
+
+    local_data = [data[local_slice, :] for local_slice in local_slices]
+
+    # compute local dendrograms
+    local_dendrograms = [Dendrogram.compute(_data) for _data in local_data]
+
+    # add offsets
+    for i, dendrogram in enumerate(local_dendrograms):
+        for structure in dendrogram.all_structures:
+            offset = np.zeros((1, data.ndim), int)
+            offset[:, 0] = local_slices[i].start
+            structure._indices = np.array(structure._indices) + offset
+
+    # gather all structures
+    all_structures = []
+    for dendrogram in local_dendrograms:
+        all_structures += [me for me in dendrogram.all_structures]
+
+    # isolate critical parts from structures
+    ref_indices = [structure._indices for structure in all_structures]
+    ref_values = [structure._values for structure in all_structures]
+
+    for index, ref_index in zip(indices, ref_indices, strict=True):
+        assert np.allclose(index, ref_index)
+    for value, ref_value in zip(values, ref_values, strict=True):
+        assert np.allclose(value, ref_value)
 
 
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
@@ -245,4 +300,5 @@ def test_1D_pseudo_parallel(ntasks):
 
 
 if __name__ == "__main__":
-    test_2D_pseudo_parallel(2, 16, 3)
+    test_get_local_structures(None, 12, 2)
+    test_2D(None)

@@ -20,3 +20,4 @@ dependencies:
   - pip:
     - astrodendro
     - pre-commit
+    - pytest-isolate-mpi

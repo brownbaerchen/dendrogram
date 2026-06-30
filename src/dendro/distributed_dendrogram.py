@@ -10,14 +10,16 @@ class DistributedDendrogram(Dendrogram):
     def compute(data):
         assert isinstance(data, ht.DNDarray)
 
-        # if not data.is_distributed():
-        #     return Dendrogram.compute(data)
+        if not data.is_distributed():
+            return Dendrogram.compute(data)
 
         indices, values = DistributedDendrogram.get_local_structures(data)
+        global_data = data.numpy()
 
-        if data.comm.rank == 0:
-            print(len(indices), len(indices))
-            breakpoint()
+        chunks = DistributedDendrogram.chunk_local_structures(indices, values)
+        chunks = DistributedDendrogram.sort_chunks(chunks, global_data)
+
+        return DistributedDendrogram.merge_chunks(chunks, global_data)
 
     @staticmethod
     def get_local_structures(data):
@@ -36,8 +38,8 @@ class DistributedDendrogram(Dendrogram):
 
         # add offsets to local indices
         _, offsets = data.counts_displs()
-        offset = np.zeros((1, data.ndim), dtype=np.int)
-        offset[data.split] = offsets[comm.rank]
+        offset = np.zeros((1, data.ndim), dtype=int)
+        offset[:, data.split] = offsets[comm.rank]
         indices = [me + offset for me in indices]
 
         # communicate data
