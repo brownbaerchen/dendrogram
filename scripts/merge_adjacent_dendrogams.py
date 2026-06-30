@@ -2,6 +2,29 @@
 # Computing a global dendrogram by merging local dendrograms
 # ==========================================================
 
+# This notebook explains one algorithm for distributing the dendrogram computation.
+# The algorithm has the following steps
+# - distribute the data among processes
+# - compute local dendrograms on each process in parallel
+# - gather the local dendrograms on one task
+# - Further break apart local structures on any extreme points
+# - recompute the dendrogram, but on the chunks from local structures
+
+# This will not scale perfectly because the merging of local dendrograms is a serial bottleneck.
+# In the worst case, every pixel is its own structure and the full dendrogram is computed from scratch on a single task again, which should take at most twice as long as the serial case.
+# The algorithm works better, the fewer structures are identified.
+# This implies few chunks to merge in the serial dendrogram computation.
+
+# For example, with $N$ data points, the serial dendrogram needs $N$ iterations.
+# Splitting the data among $P$ processes, we need $N/P$ iterations on each local task.
+# Then, we get $M\leq N$ chunks of data that we need to recompute the dendrogram on, requiring another $M$ iterations.
+# So, the speedup is $S\approx \frac{N}{N/P + M}\geq 1/(P + 1)$.
+# $M$ depends on $P$ and on how many structures there are in the data.
+# It remains to be seen how well this performs on real world data.
+
+# 1D example
+# ----------
+
 # Let's start by doing some imports and defining the data
 
 # %%
@@ -236,8 +259,8 @@ for structure in reference_dendrogram.all_structures:
 # %% [markdown]
 # Success! Now let's try the same thing in 2D.
 #
-# 2D
-# --
+# 2D Example
+# ----------
 # First, we set up some data and compute a reference dendrogram with astrodendro.
 # Here, we'll use versions of the above functions that are ND compatible and not defined inside this notebook.
 
