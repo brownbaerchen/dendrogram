@@ -278,19 +278,34 @@ plot_astrodendro_leaves(axs[1], reference_dendrogram.trunk)
 axs[0].set_title("Merged dendrogram")
 axs[1].set_title("Reference dendrogram")
 
-for structure in reference_dendrogram.all_structures:
-    corresponds_to = [
-        ref_struct
-        for ref_struct in merged_dendrogram.all_structures
-        if np.any(np.isin(structure._indices, ref_struct._indices))
-    ]
-    assert len(corresponds_to) == 1, (
-        f"Structure in reference dendrogram corresponds to {len(corresponds_to)} structures in the merged one"
+
+def compare_dendrograms(ref_dendrogram, other_dendrogram):
+    from dendro.distributed_dendrogram import rows_in
+
+    n_structures1 = len([me for me in ref_dendrogram.all_structures])
+    n_structures2 = len([me for me in other_dendrogram.all_structures])
+    assert n_structures1 == n_structures2, (
+        f"Got {n_structures1} structures in reference dendrogram, but {n_structures2} in other one"
     )
-    assert np.allclose(
-        np.sort(np.array(structure._indices).flatten()),
-        np.sort(np.array(corresponds_to[0]._indices).flatten()),
-    ), "Indices dont match between merged and reference structure"
+
+    for structure in ref_dendrogram.all_structures:
+        corresponds_to = [
+            ref_struct
+            for ref_struct in other_dendrogram.all_structures
+            if np.any(
+                rows_in(np.array(structure._indices), np.array(ref_struct._indices))
+            )
+        ]
+        assert len(corresponds_to) == 1, (
+            f"Structure in reference dendrogram corresponds to {len(corresponds_to)} structures in the merged one"
+        )
+        assert np.allclose(
+            np.sort(np.array(structure._indices).flatten()),
+            np.sort(np.array(corresponds_to[0]._indices).flatten()),
+        ), "Indices dont match between merged and reference structure"
+
+
+compare_dendrograms(reference_dendrogram, merged_dendrogram)
 
 
 # %% [markdown]
@@ -408,8 +423,9 @@ for structure in reference_dendrogram.all_structures:
     axs[1].contour(_data, levels=[1.0], colors=["white"])
 
 # %% [markdown]
-# We can see that the dendrograms are almost the same.
-# Not quite the same, but this can probably be fixed.
+# We can see that the dendrograms are the same, which we can also rigorously verify.
+
+compare_dendrograms(reference_dendrogram, merged_dendrogram)
 
 # %%
 if __name__ == "__main__":

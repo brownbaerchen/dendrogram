@@ -104,11 +104,8 @@ class DistributedDendrogram(Dendrogram):
             for i in range(chunk.shape[1]):
                 one = np.zeros((1, chunk.shape[1]), dtype=int)
                 one[:, i] = 1
-                adjacentp = np.isin((chunk + one)[:, 0], other[:, 0])
-                adjacentm = np.isin((chunk - one)[:, 0], other[:, 0])
-                for j in range(1, chunk.shape[1]):
-                    adjacentp = adjacentp & np.isin((chunk + one)[:, j], other[:, j])
-                    adjacentm = adjacentm & np.isin((chunk - one)[:, j], other[:, j])
+                adjacentp = rows_in(chunk + one, other)
+                adjacentm = rows_in(chunk - one, other)
 
                 if np.any(adjacentp) or np.any(adjacentm):
                     return True
@@ -213,3 +210,10 @@ class DistributedDendrogram(Dendrogram):
             structure._level = 0
 
         return dendrogram
+
+
+def rows_in(a, b):
+    dtype = np.dtype((np.void, a.dtype.itemsize * a.shape[1]))
+    a_view = np.ascontiguousarray(a).view(dtype).ravel()
+    b_view = np.ascontiguousarray(b).view(dtype).ravel()
+    return np.isin(a_view, b_view)
