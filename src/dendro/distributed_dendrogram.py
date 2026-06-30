@@ -205,9 +205,13 @@ class DistributedDendrogram(Dendrogram):
             structure for structure in structures if structure.parent is None
         ]
 
-        # TODO: properly fix below
         for structure in structures:
             structure._level = 0
+            if structure.parent is not None:
+                parent = structure.parent
+                while parent is not None:
+                    structure._level += 1
+                    parent = parent.parent
 
         return dendrogram
 

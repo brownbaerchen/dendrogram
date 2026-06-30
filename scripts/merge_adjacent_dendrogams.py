@@ -415,16 +415,12 @@ merged_dendrogram = DistributedDendrogram.merge_chunks(chunks, data)
 fig, axs = plt.subplots(1, 2)
 axs[0].imshow(data, **kwargs)
 axs[0].set_title("Merged")
-for structure in merged_dendrogram.all_structures:
-    _data = np.zeros_like(data)
-    _data[*np.array(structure._indices).T] = 10
-    axs[0].contour(_data, levels=[1.0], colors=["white"])
+plot_astrodendro_tree(axs[0], merged_dendrogram.plotter(), merged_dendrogram.trunk)
 axs[1].imshow(data, **kwargs)
 axs[1].set_title("Reference")
-for structure in reference_dendrogram.all_structures:
-    _data = np.zeros_like(data)
-    _data[*np.array(structure._indices).T] = 10
-    axs[1].contour(_data, levels=[1.0], colors=["white"])
+plot_astrodendro_tree(
+    axs[-1], reference_dendrogram.plotter(), reference_dendrogram.trunk
+)
 
 # %% [markdown]
 # We can see that the dendrograms are the same, which we can also rigorously verify.
