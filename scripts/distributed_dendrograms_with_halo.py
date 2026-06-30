@@ -5,6 +5,7 @@
 # Let's start by doing some imports and defining the data
 
 # %%
+# ruff: noqa: E402
 import heat as ht
 import numpy as np
 import matplotlib.pyplot as plt

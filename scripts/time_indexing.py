@@ -26,12 +26,12 @@ def time_indexing(shape):
     mask = get_mask(shape)
 
     t0 = perf_counter()
-    me = data[mask]
+    _ = data[mask]
     t1 = perf_counter()
     time_mask = t1 - t0
 
     t0 = perf_counter()
-    me = data[indices, :]
+    _ = data[indices, :]
     t1 = perf_counter()
     time_index = t1 - t0
 
@@ -40,12 +40,12 @@ def time_indexing(shape):
     mask = get_mask(shape).larray
 
     t0 = perf_counter()
-    me = data[mask]
+    _ = data[mask]
     t1 = perf_counter()
     time_mask_torch = t1 - t0
 
     t0 = perf_counter()
-    me = data[indices, :]
+    _ = data[indices, :]
     t1 = perf_counter()
     time_index_torch = t1 - t0
 

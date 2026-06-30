@@ -28,6 +28,8 @@ def get_2d_data(n, n_peaks=-1):
 
     data = ht.zeros_like(X)
     for i in range(n_peaks):
-        data += heights[i] * ht.exp(-((X - peaks[i][0]) ** 2 + (Y - peaks[i][1]) ** 2) / 0.03)
+        data += heights[i] * ht.exp(
+            -((X - peaks[i][0]) ** 2 + (Y - peaks[i][1]) ** 2) / 0.03
+        )
 
     return X, Y, data

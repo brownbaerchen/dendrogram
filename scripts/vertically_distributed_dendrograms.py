@@ -7,7 +7,6 @@
 # Let's start by doing some imports and defining the data
 
 # %%
-import heat as ht
 import numpy as np
 import matplotlib.pyplot as plt
 from dendro.utils import get_1d_data
@@ -181,7 +180,7 @@ axs[0].set_title("Starting dendrogram")
 for i in range(1, ntasks):
     merged_dendrogram = merge_dendrograms(merged_dendrogram, local_dendrograms[-i - 1])
     plot_astrodendro_leaves(axs[i], merged_dendrogram.trunk)
-    axs[i].set_title(f"Merged with task {ntasks - i -1}")
+    axs[i].set_title(f"Merged with task {ntasks - i - 1}")
 
 
 # %% [markdown]
@@ -190,27 +189,27 @@ for i in range(1, ntasks):
 
 # %%
 def compare_dendrograms(structure_1, structure_2, level=0):
-    assert len(structure_1) == len(
-        structure_2
-    ), f"Different number of features on {level=}"
+    assert len(structure_1) == len(structure_2), (
+        f"Different number of features on {level=}"
+    )
     for i in range(len(structure_1)):
         _idx_1 = sorted(np.array(structure_1[i]._indices).flatten())
         _idx_2 = sorted(np.array(structure_2[i]._indices).flatten())
-        assert len(structure_1[i]._indices) == len(
-            structure_2[i]._indices
-        ), f"Features {i} on {level=} have different number of indices ({_idx_1} and {_idx_2}"
-        assert np.allclose(
-            _idx_1, _idx_2
-        ), f"Features {i} on {level=} have different indices {_idx_1} and {_idx_2}"
-        assert len(structure_1[i].children) == len(
-            structure_2[i].children
-        ), f"Features {i} on {level=} have different number of children"
+        assert len(structure_1[i]._indices) == len(structure_2[i]._indices), (
+            f"Features {i} on {level=} have different number of indices ({_idx_1} and {_idx_2}"
+        )
+        assert np.allclose(_idx_1, _idx_2), (
+            f"Features {i} on {level=} have different indices {_idx_1} and {_idx_2}"
+        )
+        assert len(structure_1[i].children) == len(structure_2[i].children), (
+            f"Features {i} on {level=} have different number of children"
+        )
 
         compare_dendrograms(
             structure_1[i].children, structure_2[i].children, level=level + 1
         )
     if level == 0:
-        print(f"No deviations between dendrograms found!")
+        print("No deviations between dendrograms found!")
 
 
 compare_dendrograms(global_dendrogram.trunk, merged_dendrogram.trunk)

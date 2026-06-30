@@ -97,8 +97,8 @@ ax2.set_ylabel("dissimilarity")
 plt.plot(x, data, color="black")
 Z = linkage(dissimilarity[:, np.newaxis], "single")
 labels = cut_tree(Z, n_clusters=len(peaks)).flatten()
-for l in np.unique(labels):
-    mask = labels == l
+for label in np.unique(labels):
+    mask = labels == label
     plt.scatter(x[mask], data[mask])
 
 

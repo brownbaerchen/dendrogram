@@ -42,7 +42,6 @@ def dendrogram(data):
 
     # loop through all data and assign to leaves
     for i in idx[1:]:
-
         # determine how many structures are adjacent
         adjacent = []
         for j in range(num_structures):
@@ -122,7 +121,6 @@ def numba_dendrogram(data):
     num_structures += 1
 
     for i in idx[1:]:
-
         # determine how many structures are adjacent
         adjacent = []
         for j in range(num_structures):

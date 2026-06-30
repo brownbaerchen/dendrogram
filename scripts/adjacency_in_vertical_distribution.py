@@ -7,7 +7,6 @@
 # Let's start by doing some imports and defining the data
 
 # %%
-import heat as ht
 import numpy as np
 import matplotlib.pyplot as plt
 from dendro.utils import get_1d_data, get_2d_data
