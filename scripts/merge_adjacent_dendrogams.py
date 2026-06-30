@@ -234,7 +234,12 @@ for structure in reference_dendrogram.all_structures:
 
 
 # %% [markdown]
-# Success! Now let's try the same thing in 2D
+# Success! Now let's try the same thing in 2D.
+#
+# 2D
+# --
+# First, we set up some data and compute a reference dendrogram with astrodendro.
+# Here, we'll use versions of the above functions that are ND compatible and not defined inside this notebook.
 
 # %%
 from dendro.distributed_dendrogram import DistributedDendrogram
@@ -245,10 +250,13 @@ X = X.numpy()
 Y = Y.numpy()
 data = data.numpy()
 
+# %%
 reference_dendrogram = Dendrogram.compute(data)
 
-kwargs = {'vmin': data.min(), 'vmax': data.max()}
+# %% [markdown]
+# Now, we distribute the data along the first axis and compute the local dendrograms
 
+# %%
 elements_per_task = data.shape[0] // ntasks
 local_slices = [
     slice(i * elements_per_task, (i + 1) * elements_per_task) for i in range(ntasks)
@@ -262,10 +270,14 @@ local_dendrograms = [Dendrogram.compute(_data) for _data in local_data]
 # add offsets
 for i, dendrogram in enumerate(local_dendrograms):
     for structure in dendrogram.all_structures:
-        offset = np.zeros((1, 2), int)
+        offset = np.zeros((1, data.ndim), int)
         offset[:, 0] = local_slices[i].start
         structure._indices = np.array(structure._indices) + offset
 
+# %% [markdown]
+# Let's plot the local and reference dendrograms.
+
+# %%
 fig, axs = plt.subplots(1, ntasks + 1)
 
 def plot_astrodendro_tree(ax, plotter, leaves):
@@ -273,6 +285,7 @@ def plot_astrodendro_tree(ax, plotter, leaves):
         plotter.plot_contour(ax, structure=leaf)
         plot_astrodendro_tree(ax, plotter, leaf.children)
 
+kwargs = {'vmin': data.min(), 'vmax': data.max()}
 for i in range(ntasks):
     axs[i].imshow(local_data[i], **kwargs)
     axs[i].set_title(f'Task {i}')
@@ -281,6 +294,10 @@ for i in range(ntasks):
 axs[-1].imshow(data, **kwargs)
 axs[-1].set_title('Global')
 plot_astrodendro_tree(axs[-1], reference_dendrogram.plotter(), reference_dendrogram.trunk)
+
+# %% [markdown]
+# Now, we go through the same merging process as before.
+# First, we gather all structures, then chunk them, and them compute the dendrogram on the chunks.
 
 # %%
 # gather all structures
@@ -297,6 +314,9 @@ local_extrema = DistributedDendrogram.get_local_extrema(values)
 chunks = DistributedDendrogram.chunk_local_structures(indices, values, local_extrema)
 chunks = DistributedDendrogram.sort_chunks(chunks, data)
 
+# %% [markdown]
+# Here are the chunks:
+
 # %%
 fig, ax = plt.subplots()
 ax.imshow(data, **kwargs)
@@ -305,6 +325,7 @@ for chunk in chunks:
     _data[*chunk.T] = 10
     ax.contour(_data, levels=[1.])
 
+# %%
 merged_dendrogram = DistributedDendrogram.merge_chunks(chunks, data)
 
 fig, axs = plt.subplots(1, 2)
@@ -321,7 +342,9 @@ for structure in reference_dendrogram.all_structures:
     _data[*np.array(structure._indices).T] = 10
     axs[1].contour(_data, levels=[1.], colors=['white'])
 
-
+# %% [markdown]
+# We can see that the dendrograms are almost the same.
+# Not quite the same, but this can probably be fixed.
 
 # %%
 if __name__ == "__main__":
