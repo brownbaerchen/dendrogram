@@ -11,7 +11,7 @@ class DistributedDendrogram(Dendrogram):
         assert isinstance(data, ht.DNDarray)
 
         if not data.is_distributed():
-            return Dendrogram.compute(data)
+            return Dendrogram.compute(data.numpy())
 
         indices, values = DistributedDendrogram.get_local_structures(data)
         global_data = data.numpy()
@@ -183,8 +183,15 @@ class DistributedDendrogram(Dendrogram):
                 )
 
             elif len(adjacent_structures) == 1:  # merge into existing structure
-                for idx in chunk:
-                    adjacent_structures[0]._add_pixel(tuple(idx), data[*idx.T])
+                structure = adjacent_structures[0]
+                structure._indices += [tuple(me) for me in chunk]
+                structure._values += list(data[*chunk.T])
+                structure._vmin, structure._vmax = (
+                    min(structure._values),
+                    max(structure._values),
+                )
+                structure._smallest_index = min(structure._indices)
+                structure._reset_cache()
 
             elif len(adjacent_structures) == 2:  # create parent structure
                 structures.append(

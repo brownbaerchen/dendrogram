@@ -300,5 +300,7 @@ def test_1D_pseudo_parallel(ntasks):
 
 
 if __name__ == "__main__":
+    test_2D_pseudo_parallel(2, 12, 2)
+    exit()
     test_get_local_structures(None, 12, 2)
     test_2D(None)
