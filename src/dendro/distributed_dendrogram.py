@@ -13,12 +13,20 @@ class DistributedDendrogram(Dendrogram):
         if not data.is_distributed():
             return Dendrogram.compute(data.numpy())
 
+        # compute local dendrogram
         indices, values = DistributedDendrogram.get_local_structures(data)
+
+        # chunk structures in local dendrograms at global extrema
+        chunks = DistributedDendrogram.chunk_local_structures(
+            indices, values, comm=data.comm
+        )
+
+        # communicate data
+        chunks = DistributedDendrogram.gather_chunks(chunks, data.comm)
         global_data = data.numpy()
 
-        chunks = DistributedDendrogram.chunk_local_structures(indices, values)
+        # assemble global dendrogram serially
         chunks = DistributedDendrogram.sort_chunks(chunks, global_data)
-
         return DistributedDendrogram.merge_chunks(chunks, global_data)
 
     @staticmethod
@@ -42,24 +50,26 @@ class DistributedDendrogram(Dendrogram):
         offset[:, data.split] = offsets[comm.rank]
         indices = [me + offset for me in indices]
 
-        # communicate data
-        global_indices = comm.allgather(indices)
-        global_values = comm.allgather(values)
-        indices = []
-        values = []
-        for _indices, _values in zip(global_indices, global_values):
-            indices += _indices
-            values += _values
-
         return indices, values
 
     @staticmethod
-    def get_local_extrema(values):
-        return sorted([min(v) for v in values] + [max(v) for v in values])
+    def get_local_extrema(values, comm):
+        minima = [min(v) for v in values]
+        maxima = [max(v) for v in values]
+
+        if comm is not None:
+            all_minima = comm.allgather(minima)
+            all_maxima = comm.allgather(maxima)
+            for i in range(comm.size):
+                if i != comm.rank:
+                    minima += all_minima[i]
+                    maxima += all_maxima[i]
+
+        return list(np.unique(sorted(minima + maxima)))
 
     @staticmethod
-    def chunk_local_structures(indices, values):
-        local_extrema = DistributedDendrogram.get_local_extrema(values)
+    def chunk_local_structures(indices, values, comm=None):
+        local_extrema = DistributedDendrogram.get_local_extrema(values, comm)
 
         chunks = []
         for idx, val in zip(indices, values):
@@ -87,6 +97,14 @@ class DistributedDendrogram(Dendrogram):
                 if idx.size != 0:
                     chunks.append(idx)
 
+        return chunks
+
+    @staticmethod
+    def gather_chunks(chunks, comm):
+        all_chunks = comm.allgather(chunks)
+        for i, _chunks in enumerate(all_chunks):
+            if i != comm.rank:
+                chunks += _chunks
         return chunks
 
     @staticmethod
@@ -165,6 +183,7 @@ class DistributedDendrogram(Dendrogram):
 
         # loop through all other leafs and assign them to structures
         for i, chunk in enumerate(chunks[1:]):
+            # print(f'{i}/{len(chunks)}', flush=True)
             adjacent_structures = [
                 structure
                 for structure in structures

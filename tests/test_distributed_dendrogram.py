@@ -212,6 +212,7 @@ def test_get_local_structures(mpi_ranks, res, n_peaks):
 
     # compute reference from global data
     ntasks = data.comm.size
+    comm = data.comm
     X = X.numpy()
     Y = Y.numpy()
     data = data.numpy()
@@ -233,14 +234,12 @@ def test_get_local_structures(mpi_ranks, res, n_peaks):
             offset[:, 0] = local_slices[i].start
             structure._indices = np.array(structure._indices) + offset
 
-    # gather all structures
-    all_structures = []
-    for dendrogram in local_dendrograms:
-        all_structures += [me for me in dendrogram.all_structures]
-
-    # isolate critical parts from structures
-    ref_indices = [structure._indices for structure in all_structures]
-    ref_values = [structure._values for structure in all_structures]
+    ref_indices = [
+        structure._indices for structure in local_dendrograms[comm.rank].all_structures
+    ]
+    ref_values = [
+        structure._values for structure in local_dendrograms[comm.rank].all_structures
+    ]
 
     for index, ref_index in zip(indices, ref_indices, strict=True):
         assert np.allclose(index, ref_index)
@@ -300,7 +299,4 @@ def test_1D_pseudo_parallel(ntasks):
 
 
 if __name__ == "__main__":
-    test_2D_pseudo_parallel(2, 12, 2)
-    exit()
-    test_get_local_structures(None, 12, 2)
     test_2D(None)
