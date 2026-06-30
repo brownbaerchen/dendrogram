@@ -28,6 +28,7 @@
 # Let's start by doing some imports and defining the data
 
 # %%
+# ruff: noqa: E402
 import numpy as np
 import matplotlib.pyplot as plt
 from dendro.utils import get_1d_data
@@ -94,6 +95,8 @@ def plot_local_dendrograms(local_dendrograms):
         ax.plot(x[local_slices[i]], data[local_slices[i]], color="black")
 
         plot_astrodendro_leaves(ax, local_dendrograms[i].trunk)
+
+
 plot_local_dendrograms(local_dendrograms)
 
 # %% [markdown]
@@ -106,7 +109,9 @@ all_structures = []
 for dendrogram in local_dendrograms:
     all_structures += [me for me in dendrogram.all_structures]
 
-local_extrema = [structure._vmin for structure in all_structures] + [structure._vmax for structure in all_structures]
+local_extrema = [structure._vmin for structure in all_structures] + [
+    structure._vmax for structure in all_structures
+]
 local_extrema = sorted(local_extrema)
 
 chunks = []
@@ -117,7 +122,7 @@ for structure in all_structures:
     start_idx = local_extrema.index(structure._vmin)
     stop_idx = local_extrema.index(structure._vmax)
 
-    chunk_along = local_extrema[start_idx+1:stop_idx]
+    chunk_along = local_extrema[start_idx + 1 : stop_idx]
 
     if len(chunk_along) == 0:
         chunks.append(indices)
@@ -135,20 +140,22 @@ for structure in all_structures:
         if indices.size != 0:
             chunks.append(indices)
 
-print(f'Split the global dendrogram with {data.shape[0]} data points into {len(chunks)} chunks')
+print(
+    f"Split the global dendrogram with {data.shape[0]} data points into {len(chunks)} chunks"
+)
 
 # %% [markdown]
 # Next, we plot the chunks and the reference diagram side-by-side.
 
 # %%
 fig, axs = plt.subplots(1, 2, sharey=True)
-axs[0].plot(x, data, color='black')
-axs[1].plot(x, data, color='black')
+axs[0].plot(x, data, color="black")
+axs[1].plot(x, data, color="black")
 for chunk in chunks:
     axs[0].scatter(x[chunk], data[chunk])
 plot_astrodendro_leaves(axs[1], reference_dendrogram.trunk)
-axs[0].set_title('Chunks')
-axs[1].set_title('Full dendrogram')
+axs[0].set_title("Chunks")
+axs[1].set_title("Full dendrogram")
 
 # %% [markdown]
 # Looks about right: The chunks are smaller than the structures and no chunk is part of two structures.
@@ -172,13 +179,15 @@ chunks = [chunks[i] for i in np.argsort(chunk_max_vals)[::-1]]
 # %% [markdown]
 # Before we can assemble the dendrogram, we need to determine whether two chunks are adjacent.
 
+
 # %%
 def is_adjacent(chunkA, chunkB):
-    if np.any(np.isin(chunkA +1, chunkB)):
+    if np.any(np.isin(chunkA + 1, chunkB)):
         return True
-    elif np.any(np.isin(chunkA -1, chunkB)):
+    elif np.any(np.isin(chunkA - 1, chunkB)):
         return True
     return False
+
 
 # %% [markdown]
 # Let's check the function with a few examples
@@ -189,14 +198,14 @@ chunkB = chunks[1]
 chunkC = chunks[2]
 
 fig, ax = plt.subplots()
-ax.plot(x, data, color='black')
-ax.scatter(x[chunkA], data[chunkA], label='Chunk A')
-ax.scatter(x[chunkB], data[chunkB], label='Chunk B')
-ax.scatter(x[chunkC], data[chunkC], label='Chunk C')
+ax.plot(x, data, color="black")
+ax.scatter(x[chunkA], data[chunkA], label="Chunk A")
+ax.scatter(x[chunkB], data[chunkB], label="Chunk B")
+ax.scatter(x[chunkC], data[chunkC], label="Chunk C")
 ax.legend()
 
-print(f'Chunk A is{"" if is_adjacent(chunkA, chunkB) else " not"} adjacent to chunk B')
-print(f'Chunk A is{"" if is_adjacent(chunkA, chunkC) else " not"} adjacent to chunk C')
+print(f"Chunk A is{'' if is_adjacent(chunkA, chunkB) else ' not'} adjacent to chunk B")
+print(f"Chunk A is{'' if is_adjacent(chunkA, chunkC) else ' not'} adjacent to chunk C")
 assert not is_adjacent(chunkA, chunkB)
 assert is_adjacent(chunkA, chunkC)
 
@@ -212,18 +221,26 @@ assert is_adjacent(chunkA, chunkC)
 # %%
 merged_dendrogram = Dendrogram()
 
+
 def is_adjacent_to_structure(chunk, structure):
     if is_adjacent(chunk, structure._indices):
         return True
     else:
-        return any(is_adjacent_to_structure(chunk, child) for child in structure._children)
+        return any(
+            is_adjacent_to_structure(chunk, child) for child in structure._children
+        )
+
 
 # start with the first leaf
 structures = [Structure(chunks[0], data[chunks[0]], dendrogram=merged_dendrogram)]
 
 # loop through all other leafs and assign them to structures
 for chunk in chunks[1:]:
-    adjacent_structures = [structure for structure in structures if is_adjacent_to_structure(chunk, structure) and structure.parent is None]
+    adjacent_structures = [
+        structure
+        for structure in structures
+        if is_adjacent_to_structure(chunk, structure) and structure.parent is None
+    ]
 
     if len(adjacent_structures) == 0:  # create new leaf
         structures.append(Structure(chunk, data[chunk], dendrogram=merged_dendrogram))
@@ -233,27 +250,47 @@ for chunk in chunks[1:]:
             adjacent_structures[0]._add_pixel(idx, data[idx])
 
     elif len(adjacent_structures) == 2:  # create parent structure
-        structures.append(Structure(chunk, data[chunk], children=adjacent_structures, dendrogram=merged_dendrogram))
+        structures.append(
+            Structure(
+                chunk,
+                data[chunk],
+                children=adjacent_structures,
+                dendrogram=merged_dendrogram,
+            )
+        )
 
     else:
-        raise Exception(f'Chunk is adjacent to {len(adjacent_structures)} structures, which is not supposed to happen')
+        raise Exception(
+            f"Chunk is adjacent to {len(adjacent_structures)} structures, which is not supposed to happen"
+        )
 
 # identify trunk
-merged_dendrogram._trunk = [structure for structure in structures if structure.parent is None]
+merged_dendrogram._trunk = [
+    structure for structure in structures if structure.parent is None
+]
 
 # %%
 fig, axs = plt.subplots(1, 2, sharey=True)
-axs[0].plot(x, data, color='black')
-axs[1].plot(x, data, color='black')
+axs[0].plot(x, data, color="black")
+axs[1].plot(x, data, color="black")
 plot_astrodendro_leaves(axs[0], merged_dendrogram.trunk)
 plot_astrodendro_leaves(axs[1], reference_dendrogram.trunk)
-axs[0].set_title('Merged dendrogram')
-axs[1].set_title('Reference dendrogram')
+axs[0].set_title("Merged dendrogram")
+axs[1].set_title("Reference dendrogram")
 
 for structure in reference_dendrogram.all_structures:
-    corresponds_to = [ref_struct for ref_struct in merged_dendrogram.all_structures if np.any(np.isin(structure._indices, ref_struct._indices))]
-    assert len(corresponds_to) == 1, f'Structure in reference dendrogram corresponds to {len(corresponds_to)} structures in the merged one'
-    assert np.allclose(np.sort(np.array(structure._indices).flatten()), np.sort(np.array(corresponds_to[0]._indices).flatten())), 'Indices dont match between merged and reference structure'
+    corresponds_to = [
+        ref_struct
+        for ref_struct in merged_dendrogram.all_structures
+        if np.any(np.isin(structure._indices, ref_struct._indices))
+    ]
+    assert len(corresponds_to) == 1, (
+        f"Structure in reference dendrogram corresponds to {len(corresponds_to)} structures in the merged one"
+    )
+    assert np.allclose(
+        np.sort(np.array(structure._indices).flatten()),
+        np.sort(np.array(corresponds_to[0]._indices).flatten()),
+    ), "Indices dont match between merged and reference structure"
 
 
 # %% [markdown]
@@ -303,20 +340,26 @@ for i, dendrogram in enumerate(local_dendrograms):
 # %%
 fig, axs = plt.subplots(1, ntasks + 1)
 
+
 def plot_astrodendro_tree(ax, plotter, leaves):
     for leaf in leaves:
         plotter.plot_contour(ax, structure=leaf)
         plot_astrodendro_tree(ax, plotter, leaf.children)
 
-kwargs = {'vmin': data.min(), 'vmax': data.max()}
+
+kwargs = {"vmin": data.min(), "vmax": data.max()}
 for i in range(ntasks):
     axs[i].imshow(local_data[i], **kwargs)
-    axs[i].set_title(f'Task {i}')
-    plot_astrodendro_tree(axs[i], local_dendrograms[i].plotter(), local_dendrograms[i].trunk)
+    axs[i].set_title(f"Task {i}")
+    plot_astrodendro_tree(
+        axs[i], local_dendrograms[i].plotter(), local_dendrograms[i].trunk
+    )
 
 axs[-1].imshow(data, **kwargs)
-axs[-1].set_title('Global')
-plot_astrodendro_tree(axs[-1], reference_dendrogram.plotter(), reference_dendrogram.trunk)
+axs[-1].set_title("Global")
+plot_astrodendro_tree(
+    axs[-1], reference_dendrogram.plotter(), reference_dendrogram.trunk
+)
 
 # %% [markdown]
 # Now, we go through the same merging process as before.
@@ -331,10 +374,9 @@ for dendrogram in local_dendrograms:
 # isolate critical parts from structures
 indices = [structure._indices for structure in all_structures]
 values = [structure._values for structure in all_structures]
-local_extrema = DistributedDendrogram.get_local_extrema(values)
 
 # chunk data
-chunks = DistributedDendrogram.chunk_local_structures(indices, values, local_extrema)
+chunks = DistributedDendrogram.chunk_local_structures(indices, values)
 chunks = DistributedDendrogram.sort_chunks(chunks, data)
 
 # %% [markdown]
@@ -346,24 +388,24 @@ ax.imshow(data, **kwargs)
 for chunk in chunks:
     _data = np.zeros_like(data)
     _data[*chunk.T] = 10
-    ax.contour(_data, levels=[1.])
+    ax.contour(_data, levels=[1.0])
 
 # %%
 merged_dendrogram = DistributedDendrogram.merge_chunks(chunks, data)
 
 fig, axs = plt.subplots(1, 2)
 axs[0].imshow(data, **kwargs)
-axs[0].set_title('Merged')
+axs[0].set_title("Merged")
 for structure in merged_dendrogram.all_structures:
     _data = np.zeros_like(data)
     _data[*np.array(structure._indices).T] = 10
-    axs[0].contour(_data, levels=[1.], colors=['white'])
+    axs[0].contour(_data, levels=[1.0], colors=["white"])
 axs[1].imshow(data, **kwargs)
-axs[1].set_title('Reference')
+axs[1].set_title("Reference")
 for structure in reference_dendrogram.all_structures:
     _data = np.zeros_like(data)
     _data[*np.array(structure._indices).T] = 10
-    axs[1].contour(_data, levels=[1.], colors=['white'])
+    axs[1].contour(_data, levels=[1.0], colors=["white"])
 
 # %% [markdown]
 # We can see that the dendrograms are almost the same.

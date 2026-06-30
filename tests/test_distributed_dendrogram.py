@@ -2,6 +2,7 @@ import pytest
 from dendro.distributed_dendrogram import DistributedDendrogram, Dendrogram
 import numpy as np
 
+
 def test_is_adjacent():
     # 1D
     chunkA = [[1]]
@@ -12,7 +13,7 @@ def test_is_adjacent():
     chunkB = [[0]]
     assert DistributedDendrogram.is_adjacent(chunkA, chunkB)
 
-    chunkA = [[1]] 
+    chunkA = [[1]]
     chunkB = [[3]]
     assert not DistributedDendrogram.is_adjacent(chunkA, chunkB)
 
@@ -47,6 +48,50 @@ def test_is_adjacent():
     chunkA = [(1, 2, 7), (44, 98, 33)]
     chunkB = [(2, 3, 7), (44, 99, 33)]
     assert DistributedDendrogram.is_adjacent(chunkA, chunkB)
+
+
+def test_chunk_local_structures():
+    # 1D
+    indices = [[0, 1, 2], [3, 4]]
+    chunks = DistributedDendrogram.chunk_local_structures(indices, indices)
+    assert np.all(
+        [
+            np.allclose(_expect, _chunks)
+            for _expect, _chunks in zip(indices, chunks, strict=True)
+        ]
+    )
+
+    indices = [[0, 1, 2], [3, 4]]
+    values = [[1, 2, 3], [2, 0]]
+    expect = [[0, 1], [2], [4], [3]]
+    chunks = DistributedDendrogram.chunk_local_structures(indices, values)
+    assert np.all(
+        [
+            np.allclose(_expect, _chunks)
+            for _expect, _chunks in zip(expect, chunks, strict=True)
+        ]
+    )
+
+    indices = [[0, 1, 2], [3, 4]]
+    values = [[1, 1, 1], [2, 2]]
+    chunks = DistributedDendrogram.chunk_local_structures(indices, values)
+    assert np.all(
+        [
+            np.allclose(_expect, _chunks)
+            for _expect, _chunks in zip(indices, chunks, strict=True)
+        ]
+    )
+
+    # 2D
+    indices = [[(0, 0), (1, 1), (2, 2)], [(3, 3), (4, 4)]]
+    chunks = DistributedDendrogram.chunk_local_structures(indices, indices)
+    assert np.all(
+        [
+            np.allclose(_expect, _chunks)
+            for _expect, _chunks in zip(indices, chunks, strict=True)
+        ]
+    )
+
 
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 def test_2D_pseudo_parallel(ntasks):
@@ -84,10 +129,9 @@ def test_2D_pseudo_parallel(ntasks):
     # isolate critical parts from structures
     indices = [structure._indices for structure in all_structures]
     values = [structure._values for structure in all_structures]
-    local_extrema = DistributedDendrogram.get_local_extrema(values)
 
     # chunk data
-    chunks = DistributedDendrogram.chunk_local_structures(indices, values, local_extrema)
+    chunks = DistributedDendrogram.chunk_local_structures(indices, values)
     chunks = DistributedDendrogram.sort_chunks(chunks, data)
 
     # assert np.allclose(np.sort(np.concatenate(chunks)[:, 0]), np.arange(data.shape[0]))
@@ -101,15 +145,24 @@ def test_2D_pseudo_parallel(ntasks):
     merged_dendrogram = DistributedDendrogram.merge_chunks(chunks, data)
 
     for structure in reference_dendrogram.all_structures:
-        corresponds_to = [ref_struct for ref_struct in merged_dendrogram.all_structures if np.any(np.isin(structure._indices, ref_struct._indices))]
-        assert len(corresponds_to) == 1, f'Structure in reference dendrogram corresponds to {len(corresponds_to)} structures in the merged one'
-        assert np.allclose(np.sort(np.array(structure._indices).flatten()), np.sort(np.array(corresponds_to[0]._indices).flatten())), 'Indices dont match between merged and reference structure'
+        corresponds_to = [
+            ref_struct
+            for ref_struct in merged_dendrogram.all_structures
+            if np.any(np.isin(structure._indices, ref_struct._indices))
+        ]
+        assert len(corresponds_to) == 1, (
+            f"Structure in reference dendrogram corresponds to {len(corresponds_to)} structures in the merged one"
+        )
+        assert np.allclose(
+            np.sort(np.array(structure._indices).flatten()),
+            np.sort(np.array(corresponds_to[0]._indices).flatten()),
+        ), "Indices dont match between merged and reference structure"
+
 
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 def test_1D_pseudo_parallel(ntasks):
     import numpy as np
     from astrodendro.dendrogram import Dendrogram
-    from astrodendro.structure import Structure
     from dendro.utils import get_1d_data
 
     x, data = get_1d_data(128)
@@ -139,10 +192,9 @@ def test_1D_pseudo_parallel(ntasks):
     # isolate critical parts from structures
     indices = [structure._indices for structure in all_structures]
     values = [structure._values for structure in all_structures]
-    local_extrema = DistributedDendrogram.get_local_extrema(values)
 
     # chunk data
-    chunks = DistributedDendrogram.chunk_local_structures(indices, values, local_extrema)
+    chunks = DistributedDendrogram.chunk_local_structures(indices, values)
     chunks = DistributedDendrogram.sort_chunks(chunks, data)
 
     assert np.allclose(np.sort(np.concatenate(chunks)[:, 0]), np.arange(data.shape[0]))
@@ -156,11 +208,19 @@ def test_1D_pseudo_parallel(ntasks):
     merged_dendrogram = DistributedDendrogram.merge_chunks(chunks, data)
 
     for structure in reference_dendrogram.all_structures:
-        corresponds_to = [ref_struct for ref_struct in merged_dendrogram.all_structures if np.any(np.isin(structure._indices, ref_struct._indices))]
-        assert len(corresponds_to) == 1, f'Structure in reference dendrogram corresponds to {len(corresponds_to)} structures in the merged one'
-        assert np.allclose(np.sort(np.array(structure._indices).flatten()), np.sort(np.array(corresponds_to[0]._indices).flatten())), 'Indices dont match between merged and reference structure'
+        corresponds_to = [
+            ref_struct
+            for ref_struct in merged_dendrogram.all_structures
+            if np.any(np.isin(structure._indices, ref_struct._indices))
+        ]
+        assert len(corresponds_to) == 1, (
+            f"Structure in reference dendrogram corresponds to {len(corresponds_to)} structures in the merged one"
+        )
+        assert np.allclose(
+            np.sort(np.array(structure._indices).flatten()),
+            np.sort(np.array(corresponds_to[0]._indices).flatten()),
+        ), "Indices dont match between merged and reference structure"
 
 
-if __name__ == '__main__':
-    test_is_adjacent()
-
+if __name__ == "__main__":
+    test_chunk_local_structures()

@@ -1,12 +1,11 @@
 import heat as ht
-import torch
 import numpy as np
 
 from astrodendro.dendrogram import Dendrogram
 from astrodendro.structure import Structure
 
-class DistributedDendrogram(Dendrogram):
 
+class DistributedDendrogram(Dendrogram):
     @staticmethod
     def compute(data):
         assert isinstance(data, ht.DNDarray)
@@ -14,10 +13,7 @@ class DistributedDendrogram(Dendrogram):
         # if not data.is_distributed():
         #     return Dendrogram.compute(data)
 
-        
         indices, values = DistributedDendrogram.get_local_structures(data)
-
-
 
         if data.comm.rank == 0:
             print(len(indices), len(indices))
@@ -30,8 +26,13 @@ class DistributedDendrogram(Dendrogram):
 
         # compute local dendrograms
         local_dendrogram = Dendrogram.compute(data.larray.numpy())
-        indices = [np.array(structure._indices) for structure in local_dendrogram.all_structures]
-        values = [np.array(structure._values) for structure in local_dendrogram.all_structures]
+        indices = [
+            np.array(structure._indices)
+            for structure in local_dendrogram.all_structures
+        ]
+        values = [
+            np.array(structure._values) for structure in local_dendrogram.all_structures
+        ]
 
         # add offsets to local indices
         _, offsets = data.counts_displs()
@@ -55,7 +56,9 @@ class DistributedDendrogram(Dendrogram):
         return sorted([min(v) for v in values] + [max(v) for v in values])
 
     @staticmethod
-    def chunk_local_structures(indices, values, local_extrema):
+    def chunk_local_structures(indices, values):
+        local_extrema = DistributedDendrogram.get_local_extrema(values)
+
         chunks = []
         for idx, val in zip(indices, values):
             idx = np.array(idx)
@@ -64,7 +67,7 @@ class DistributedDendrogram(Dendrogram):
             start_idx = local_extrema.index(min(val))
             stop_idx = local_extrema.index(max(val))
 
-            chunk_along = local_extrema[start_idx+1:stop_idx]
+            chunk_along = local_extrema[start_idx + 1 : stop_idx]
 
             if len(chunk_along) == 0:
                 chunks.append(idx)
@@ -90,10 +93,6 @@ class DistributedDendrogram(Dendrogram):
         return [chunks[i] for i in np.argsort(chunk_max_vals)[::-1]]
 
     @staticmethod
-    def merge_local_structures(indices, values):
-        pass
-
-    @staticmethod
     def is_adjacent(chunk, other):
         if isinstance(other, (list, type(chunk))):
             if isinstance(chunk, list):
@@ -103,7 +102,6 @@ class DistributedDendrogram(Dendrogram):
             assert chunk.ndim == 2
 
             for i in range(chunk.shape[1]):
-
                 one = np.zeros((1, chunk.shape[1]), dtype=int)
                 one[:, i] = 1
                 adjacentp = np.isin((chunk + one)[:, 0], other[:, 0])
@@ -142,10 +140,14 @@ class DistributedDendrogram(Dendrogram):
             if DistributedDendrogram.is_adjacent(chunk, other._indices):
                 return True
             else:
-                return any(DistributedDendrogram.is_adjacent(chunk, child) for child in other._children)
+                return any(
+                    DistributedDendrogram.is_adjacent(chunk, child)
+                    for child in other._children
+                )
         else:
-            raise NotImplementedError(f'Got input of {type(other)} that we can\'t handle')
-
+            raise NotImplementedError(
+                f"Got input of {type(other)} that we can't handle"
+            )
 
     @staticmethod
     def merge_chunks(chunks, data):
@@ -154,27 +156,57 @@ class DistributedDendrogram(Dendrogram):
         dendrogram.data = data
 
         # start with the first leaf
-        structures = [Structure([tuple(me) for me in chunks[0]], data[*chunks[0].T], dendrogram=dendrogram)]
+        structures = [
+            Structure(
+                [tuple(me) for me in chunks[0]],
+                data[*chunks[0].T],
+                dendrogram=dendrogram,
+            )
+        ]
 
         # loop through all other leafs and assign them to structures
         for i, chunk in enumerate(chunks[1:]):
-            adjacent_structures = [structure for structure in structures if DistributedDendrogram.is_adjacent(chunk, structure) and structure.parent is None]
+            adjacent_structures = [
+                structure
+                for structure in structures
+                if DistributedDendrogram.is_adjacent(chunk, structure)
+                and structure.parent is None
+            ]
 
             if len(adjacent_structures) == 0:  # create new leaf
-                structures.append(Structure([tuple(me) for me in chunk], data[*chunk.T], idx=i, dendrogram=dendrogram))
+                structures.append(
+                    Structure(
+                        [tuple(me) for me in chunk],
+                        data[*chunk.T],
+                        idx=i,
+                        dendrogram=dendrogram,
+                    )
+                )
 
             elif len(adjacent_structures) == 1:  # merge into existing structure
                 for idx in chunk:
                     adjacent_structures[0]._add_pixel(tuple(idx), data[*idx.T])
 
             elif len(adjacent_structures) == 2:  # create parent structure
-                structures.append(Structure([tuple(me) for me in chunk], data[*chunk.T], children=adjacent_structures, idx=i, dendrogram=dendrogram))
+                structures.append(
+                    Structure(
+                        [tuple(me) for me in chunk],
+                        data[*chunk.T],
+                        children=adjacent_structures,
+                        idx=i,
+                        dendrogram=dendrogram,
+                    )
+                )
 
             else:
-                raise Exception(f'Chunk is adjacent to {len(adjacent_structures)} structures, which is not supposed to happen')
+                raise Exception(
+                    f"Chunk is adjacent to {len(adjacent_structures)} structures, which is not supposed to happen"
+                )
 
         # identify trunk
-        dendrogram._trunk = [structure for structure in structures if structure.parent is None]
+        dendrogram._trunk = [
+            structure for structure in structures if structure.parent is None
+        ]
 
         # TODO: properly fix below
         for structure in structures:
