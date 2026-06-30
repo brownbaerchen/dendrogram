@@ -299,4 +299,5 @@ def test_1D_pseudo_parallel(ntasks):
 
 
 if __name__ == "__main__":
-    test_2D(None)
+    test_2D_pseudo_parallel(2, 8, 2)
+    # test_2D(None)

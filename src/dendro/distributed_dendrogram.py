@@ -2,7 +2,37 @@ import heat as ht
 import numpy as np
 
 from astrodendro.dendrogram import Dendrogram
-from astrodendro.structure import Structure
+from astrodendro.structure import Structure as astrodendro_structure
+
+
+class Structure(astrodendro_structure):
+    def __init__(self, indices, values, children=[], idx=None, dendrogram=None):
+
+        self._dendrogram = dendrogram
+        self.parent = None
+        self.children = children
+
+        # Make sure that the children have a reference to the present structure
+        for child in children:
+            child.parent = self
+
+        if np.isscalar(values):
+            self._indices = [indices]
+            self._values = [values]
+
+        if not isinstance(indices, np.ndarray) and isinstance(values, np.ndarray):
+            self._indices = np.array(indices)
+            self._values = np.array(values)
+
+        self._indices = indices
+        self._values = values
+        self._vmin, self._vmax = np.min(values), np.max(values)
+
+        self._smallest_index = np.min(self._indices)
+
+        self.idx = idx
+
+        self._reset_cache()
 
 
 class DistributedDendrogram(Dendrogram):
@@ -168,14 +198,13 @@ class DistributedDendrogram(Dendrogram):
 
     @staticmethod
     def merge_chunks(chunks, data):
-        # TODO: avoid casting to tuples by extending astrodendro to numpy
         dendrogram = Dendrogram()
         dendrogram.data = data
 
         # start with the first leaf
         structures = [
             Structure(
-                [tuple(me) for me in chunks[0]],
+                chunks[0],
                 data[*chunks[0].T],
                 dendrogram=dendrogram,
             )
@@ -194,7 +223,7 @@ class DistributedDendrogram(Dendrogram):
             if len(adjacent_structures) == 0:  # create new leaf
                 structures.append(
                     Structure(
-                        [tuple(me) for me in chunk],
+                        chunk,
                         data[*chunk.T],
                         idx=i,
                         dendrogram=dendrogram,
@@ -203,19 +232,19 @@ class DistributedDendrogram(Dendrogram):
 
             elif len(adjacent_structures) == 1:  # merge into existing structure
                 structure = adjacent_structures[0]
-                structure._indices += [tuple(me) for me in chunk]
-                structure._values += list(data[*chunk.T])
+                structure._indices = np.vstack([structure._indices, chunk])
+                structure._values = np.append(structure._values, data[*chunk.T])
                 structure._vmin, structure._vmax = (
                     min(structure._values),
                     max(structure._values),
                 )
-                structure._smallest_index = min(structure._indices)
+                structure._smallest_index = np.min(structure._indices)
                 structure._reset_cache()
 
             elif len(adjacent_structures) == 2:  # create parent structure
                 structures.append(
                     Structure(
-                        [tuple(me) for me in chunk],
+                        chunk,
                         data[*chunk.T],
                         children=adjacent_structures,
                         idx=i,
@@ -233,6 +262,7 @@ class DistributedDendrogram(Dendrogram):
             structure for structure in structures if structure.parent is None
         ]
 
+        # make astrodendro-compatible
         for structure in structures:
             structure._level = 0
             if structure.parent is not None:
@@ -240,6 +270,9 @@ class DistributedDendrogram(Dendrogram):
                 while parent is not None:
                     structure._level += 1
                     parent = parent.parent
+
+            structure._values = list(structure._values)
+            structure._indices = [tuple(me) for me in structure._indices]
 
         return dendrogram
 
