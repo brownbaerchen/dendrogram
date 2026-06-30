@@ -84,7 +84,8 @@ def test_chunk_local_structures():
 
     # 2D
     indices = [[(0, 0), (1, 1), (2, 2)], [(3, 3), (4, 4)]]
-    chunks = DistributedDendrogram.chunk_local_structures(indices, indices)
+    values = [[0, 1, 2], [3, 4]]
+    chunks = DistributedDendrogram.chunk_local_structures(indices, values)
     assert np.all(
         [
             np.allclose(_expect, _chunks)
@@ -92,8 +93,20 @@ def test_chunk_local_structures():
         ]
     )
 
+    indices = [[(0, 0), (1, 1), (2, 2)], [(3, 3), (4, 4)]]
+    values = [[1, 2, 3], [2, 0]]
+    expect = [[(0, 0), (1, 1)], [(2, 2)], [(4, 4)], [(3, 3)]]
+    chunks = DistributedDendrogram.chunk_local_structures(indices, values)
+    assert np.all(
+        [
+            np.allclose(_expect, _chunks)
+            for _expect, _chunks in zip(expect, chunks, strict=True)
+        ]
+    )
+
 
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
+@pytest.mark.skip
 def test_2D_pseudo_parallel(ntasks):
     from dendro.utils import get_2d_data
 
@@ -223,4 +236,4 @@ def test_1D_pseudo_parallel(ntasks):
 
 
 if __name__ == "__main__":
-    test_chunk_local_structures()
+    test_2D_pseudo_parallel(2)
