@@ -173,13 +173,11 @@ class DistributedDendrogram(Dendrogram):
         elif isinstance(other, Structure):
             if DistributedDendrogram.is_adjacent(chunk, other._indices):
                 return True
-            elif len(other._children) > 0:
+            else:
                 return np.any(
                     DistributedDendrogram.is_adjacent(chunk, child)
                     for child in other._children
                 )
-            else:
-                return False
         else:
             raise NotImplementedError(
                 f"Got input of {type(other)} that we can't handle"
@@ -265,6 +263,7 @@ class DistributedDendrogram(Dendrogram):
 @njit
 def shares_row(a, b):
     for rowa in a:
-        if np.any(np.sum(b - rowa, axis=1) == 0):
-            return True
+        for rowb in b:
+            if np.all(rowa == rowb):
+                return True
     return False
