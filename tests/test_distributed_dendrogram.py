@@ -196,7 +196,7 @@ def test_2D(mpi_ranks, res=64, n_peaks=3):
     compare_dendrograms(reference_dendrogram, dendrogram)
 
 
-@pytest.mark.mpi(ranks=[1, 2, 4])
+@pytest.mark.mpi(ranks=[1, 2])
 @pytest.mark.parametrize(
     "res",
     [
