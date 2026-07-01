@@ -85,8 +85,8 @@ class DistributedDendrogram(Dendrogram):
 
     @staticmethod
     def get_local_extrema(values, comm):
-        minima = [min(v) for v in values]
-        maxima = [max(v) for v in values]
+        minima = [np.min(v) for v in values]
+        maxima = [np.max(v) for v in values]
 
         if comm is not None:
             all_minima = comm.allgather(minima)
@@ -107,8 +107,8 @@ class DistributedDendrogram(Dendrogram):
             idx = np.array(idx)
             val = np.array(val)
 
-            start_idx = local_extrema.index(min(val))
-            stop_idx = local_extrema.index(max(val))
+            start_idx = local_extrema.index(np.min(val))
+            stop_idx = local_extrema.index(np.max(val))
 
             chunk_along = local_extrema[start_idx + 1 : stop_idx]
 
@@ -215,8 +215,8 @@ class DistributedDendrogram(Dendrogram):
                 structure._indices = np.vstack([structure._indices, chunk])
                 structure._values = np.append(structure._values, data[*chunk.T])
                 structure._vmin, structure._vmax = (
-                    min(structure._values),
-                    max(structure._values),
+                    np.min(structure._values),
+                    np.max(structure._values),
                 )
                 structure._smallest_index = np.min(structure._indices)
                 structure._reset_cache()
