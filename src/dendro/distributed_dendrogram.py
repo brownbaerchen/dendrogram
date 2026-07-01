@@ -160,28 +160,6 @@ class DistributedDendrogram(Dendrogram):
                 if np.any(adjacentp) or np.any(adjacentm):
                     return True
 
-                # TODO
-                # # diagonal
-                # for j in range(chunk.shape[1]):
-                #     if i == j:
-                #         continue
-
-                #     one = np.zeros((1, chunk.shape[1]), dtype=int)
-                #     one[:, i] = 1
-                #     one[:, j] = 1
-                #     if np.any(np.isin(chunk + one, other)):
-                #         return True
-                #     elif np.any(np.isin(chunk - one, other)):
-                #         return True
-
-                #     one = np.zeros((1, chunk.shape[1]), dtype=int)
-                #     one[:, i] = 1
-                #     one[:, j] = -1
-                #     if np.any(np.isin(chunk + one, other)):
-                #         return True
-                #     elif np.any(np.isin(chunk - one, other)):
-                #         return True
-
             return False
         elif isinstance(other, Structure):
             if DistributedDendrogram.is_adjacent(chunk, other._indices):
@@ -213,12 +191,13 @@ class DistributedDendrogram(Dendrogram):
         # loop through all other leafs and assign them to structures
         for i, chunk in enumerate(chunks[1:]):
             # print(f'{i}/{len(chunks)}', flush=True)
-            adjacent_structures = [
-                structure
-                for structure in structures
-                if DistributedDendrogram.is_adjacent(chunk, structure)
-                and structure.parent is None
-            ]
+            adjacent_structures = []
+            for structure in structures:
+                if structure.parent is None:
+                    if DistributedDendrogram.is_adjacent(chunk, structure):
+                        adjacent_structures.append(structure)
+                    if len(adjacent_structures) >= 2:
+                        break
 
             if len(adjacent_structures) == 0:  # create new leaf
                 structures.append(
@@ -278,6 +257,7 @@ class DistributedDendrogram(Dendrogram):
 
 
 def rows_in(a, b):
+    # TODO: this is the bottleneck
     dtype = np.dtype((np.void, a.dtype.itemsize * a.shape[1]))
     a_view = np.ascontiguousarray(a).view(dtype).ravel()
     b_view = np.ascontiguousarray(b).view(dtype).ravel()
