@@ -1,5 +1,6 @@
 import heat as ht
 import numpy as np
+from numba import njit
 
 from astrodendro.dendrogram import Dendrogram
 from astrodendro.structure import Structure as astrodendro_structure
@@ -154,8 +155,8 @@ class DistributedDendrogram(Dendrogram):
             for i in range(chunk.shape[1]):
                 one = np.zeros((1, chunk.shape[1]), dtype=int)
                 one[:, i] = 1
-                adjacentp = rows_in(chunk + one, other)
-                adjacentm = rows_in(chunk - one, other)
+                adjacentp = shares_row(chunk + one, other)
+                adjacentm = shares_row(chunk - one, other)
 
                 if np.any(adjacentp) or np.any(adjacentm):
                     return True
@@ -256,9 +257,10 @@ class DistributedDendrogram(Dendrogram):
         return dendrogram
 
 
-def rows_in(a, b):
-    # TODO: this is the bottleneck
-    dtype = np.dtype((np.void, a.dtype.itemsize * a.shape[1]))
-    a_view = np.ascontiguousarray(a).view(dtype).ravel()
-    b_view = np.ascontiguousarray(b).view(dtype).ravel()
-    return np.isin(a_view, b_view)
+@njit
+def shares_row(a, b):
+    for rowa in a:
+        for rowb in b:
+            if np.all(rowa == rowb):
+                return True
+    return False
