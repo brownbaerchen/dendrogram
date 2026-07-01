@@ -181,9 +181,27 @@ class DistributedDendrogram(Dendrogram):
             )
 
     @staticmethod
+    def get_adjacent_structure_indices(chunk, index_map):
+        adjacent = []
+        for i in range(chunk.shape[1]):
+            one = np.zeros((1, chunk.shape[1]), dtype=int)
+            one[:, i] = 1
+            adjacent += list(index_map[*(chunk + one).T])
+            adjacent += list(index_map[*(chunk - one).T])
+        return [me for me in np.unique(adjacent) if me >= 0]
+
+    @staticmethod
+    def get_adjacent_structures(structures, adjacent_structure_indices):
+        ancestor_indices = np.unique(
+            [structures[i].ancestor.idx for i in adjacent_structure_indices]
+        )
+        return [structures[i] for i in ancestor_indices]
+
+    @staticmethod
     def merge_chunks(chunks, data):
         dendrogram = Dendrogram()
         dendrogram.data = data
+        dendrogram.index_map = -np.ones(np.add(data.shape, 1), dtype=np.int32)
 
         # start with the first leaf
         structures = [
@@ -191,29 +209,33 @@ class DistributedDendrogram(Dendrogram):
                 chunks[0],
                 data[*chunks[0].T],
                 dendrogram=dendrogram,
+                idx=0,
             )
         ]
+        dendrogram.index_map[*chunks[0].T] = 0
 
         # loop through all other leafs and assign them to structures
         for i, chunk in enumerate(chunks[1:]):
             # print(f'{i}/{len(chunks)}', flush=True)
-            adjacent_structures = []
-            for structure in structures:
-                if structure.parent is None:
-                    if DistributedDendrogram.is_adjacent(chunk, structure):
-                        adjacent_structures.append(structure)
-                    if len(adjacent_structures) >= 2:
-                        break
+            adjacent_structure_indices = (
+                DistributedDendrogram.get_adjacent_structure_indices(
+                    chunk, dendrogram.index_map
+                )
+            )
+            adjacent_structures = DistributedDendrogram.get_adjacent_structures(
+                structures, adjacent_structure_indices
+            )
 
             if len(adjacent_structures) == 0:  # create new leaf
                 structures.append(
                     Structure(
                         chunk,
                         data[*chunk.T],
-                        idx=i,
+                        idx=len(structures),
                         dendrogram=dendrogram,
                     )
                 )
+                dendrogram.index_map[*chunk.T] = structures[-1].idx
 
             elif len(adjacent_structures) == 1:  # merge into existing structure
                 structure = adjacent_structures[0]
@@ -225,6 +247,7 @@ class DistributedDendrogram(Dendrogram):
                 )
                 structure._smallest_index = np.min(structure._indices)
                 structure._reset_cache()
+                dendrogram.index_map[*chunk.T] = structure.idx
 
             elif len(adjacent_structures) == 2:  # create parent structure
                 structures.append(
@@ -232,10 +255,11 @@ class DistributedDendrogram(Dendrogram):
                         chunk,
                         data[*chunk.T],
                         children=adjacent_structures,
-                        idx=i,
+                        idx=len(structures),
                         dendrogram=dendrogram,
                     )
                 )
+                dendrogram.index_map[*chunk.T] = structures[-1].idx
 
             else:
                 raise Exception(
