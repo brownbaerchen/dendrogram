@@ -174,7 +174,7 @@ class DistributedDendrogram(Dendrogram):
             if DistributedDendrogram.is_adjacent(chunk, other._indices):
                 return True
             else:
-                return np.any(
+                return any(
                     DistributedDendrogram.is_adjacent(chunk, child)
                     for child in other._children
                 )
