@@ -174,10 +174,16 @@ class DistributedDendrogram(Dendrogram):
             if DistributedDendrogram.is_adjacent(chunk, other._indices):
                 return True
             else:
-                return any(
-                    DistributedDendrogram.is_adjacent(chunk, child)
-                    for child in other._children
-                )
+                to_look_at = [me for me in other._children]
+
+                while len(to_look_at) > 0:
+                    _structure = to_look_at.pop(0)
+                    if DistributedDendrogram.is_adjacent(chunk, _structure._indices):
+                        return True
+                    else:
+                        to_look_at += _structure._children
+
+                return False
         else:
             raise NotImplementedError(
                 f"Got input of {type(other)} that we can't handle"
