@@ -280,7 +280,7 @@ axs[1].set_title("Reference dendrogram")
 
 
 def compare_dendrograms(ref_dendrogram, other_dendrogram):
-    from dendro.distributed_dendrogram import rows_in
+    from dendro.distributed_dendrogram import shares_row
 
     n_structures1 = len([me for me in ref_dendrogram.all_structures])
     n_structures2 = len([me for me in other_dendrogram.all_structures])
@@ -293,7 +293,7 @@ def compare_dendrograms(ref_dendrogram, other_dendrogram):
             ref_struct
             for ref_struct in other_dendrogram.all_structures
             if np.any(
-                rows_in(np.array(structure._indices), np.array(ref_struct._indices))
+                shares_row(np.array(structure._indices), np.array(ref_struct._indices))
             )
         ]
         assert len(corresponds_to) == 1, (
