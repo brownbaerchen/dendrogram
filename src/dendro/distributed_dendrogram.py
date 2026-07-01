@@ -155,10 +155,9 @@ class DistributedDendrogram(Dendrogram):
             for i in range(chunk.shape[1]):
                 one = np.zeros((1, chunk.shape[1]), dtype=int)
                 one[:, i] = 1
-                adjacentp = shares_row(chunk + one, other)
-                adjacentm = shares_row(chunk - one, other)
-
-                if np.any(adjacentp) or np.any(adjacentm):
+                if shares_row(chunk + one, other):
+                    return True
+                if shares_row(chunk - one, other):
                     return True
 
             return False
