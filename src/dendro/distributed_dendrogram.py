@@ -27,13 +27,22 @@ class Structure(astrodendro_structure):
 
         self._indices = indices
         self._values = values
-        self._vmin, self._vmax = np.min(values), np.max(values)
-
-        self._smallest_index = np.min(self._indices)
 
         self.idx = idx
 
         self._reset_cache()
+
+    @property
+    def _vmin(self):
+        return np.min(self.values)
+
+    @property
+    def _vmax(self):
+        return np.max(self.values)
+
+    @property
+    def _smallest_index(self):
+        return np.min(self._indices)
 
 
 class DistributedDendrogram(Dendrogram):
@@ -215,12 +224,6 @@ class DistributedDendrogram(Dendrogram):
                 structure = adjacent_structures[0]
                 structure._indices = np.vstack([structure._indices, chunk])
                 structure._values = np.append(structure._values, data[*chunk.T])
-                structure._vmin, structure._vmax = (
-                    np.min(structure._values),
-                    np.max(structure._values),
-                )
-                structure._smallest_index = np.min(structure._indices)
-                structure._reset_cache()
 
             elif len(adjacent_structures) == 2:  # create parent structure
                 structures.append(
@@ -254,6 +257,7 @@ class DistributedDendrogram(Dendrogram):
 
             structure._values = list(structure._values)
             structure._indices = [tuple(me) for me in structure._indices]
+            structure._reset_cache()
 
         return dendrogram
 
