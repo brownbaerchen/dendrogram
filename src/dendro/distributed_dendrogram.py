@@ -304,6 +304,7 @@ def shares_row(a, b):
 
 
 class DistributedDendrogramV2(Dendrogram):
+    @staticmethod
     def compute(data, **kwargs):
         ntasks = 4
         elements_per_task = data.shape[0] // ntasks
@@ -322,6 +323,12 @@ class DistributedDendrogramV2(Dendrogram):
                 offset[:, 0] = local_slices[i].start
                 structure._indices = np.array(structure._indices) + offset
 
+        self = DistributedDendrogramV2()
+        self.data = data
+        self.merge_dendrograms(local_dendrograms)
+        return self
+
+    def merge_dendrograms(self, local_dendrograms):
         all_structures = []
         for d in local_dendrograms:
             structures = [structure for structure in d.all_structures]
@@ -333,9 +340,7 @@ class DistributedDendrogramV2(Dendrogram):
             all_structures += structures
 
         merged_structures = []
-        self = Dendrogram()
-        self.index_map = -np.ones(np.add(data.shape, 1), dtype=np.int32)
-        self.data = data
+        self.index_map = -np.ones(np.add(self.data.shape, 1), dtype=np.int32)
 
         while len(all_structures) > 0:
             vmax = [structure.vmax for structure in all_structures]
