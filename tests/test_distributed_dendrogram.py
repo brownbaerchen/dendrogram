@@ -203,9 +203,23 @@ def test_2D_v2_pseudo_parallel(ntasks, res, n_peaks):
     from dendro.utils import get_2d_data
     from dendro.distributed_dendrogram import DistributedDendrogramV2
 
-    X, Y, data = get_2d_data(res, n_peaks)
+    _, _, data = get_2d_data(res, n_peaks)
 
-    dendrogram = DistributedDendrogramV2.compute_pseudo_parallel(data, ntasks)
+    dendrogram = DistributedDendrogramV2.compute_pseudo_parallel(data.numpy(), ntasks)
+    reference_dendrogram = Dendrogram.compute(data.numpy())
+    compare_dendrograms(reference_dendrogram, dendrogram)
+
+
+@pytest.mark.mpi(ranks=[1, 2])
+@pytest.mark.parametrize("res", [32])
+@pytest.mark.parametrize("n_peaks", [2, 3])
+def test_2D_v2(mpi_ranks, res, n_peaks):
+    from dendro.utils import get_2d_data
+    from dendro.distributed_dendrogram import DistributedDendrogramV2
+
+    _, _, data = get_2d_data(res, n_peaks)
+
+    dendrogram = DistributedDendrogramV2.compute(data)
     reference_dendrogram = Dendrogram.compute(data.numpy())
     compare_dendrograms(reference_dendrogram, dendrogram)
 
@@ -313,5 +327,5 @@ def test_1D_pseudo_parallel(ntasks):
 
 
 if __name__ == "__main__":
-    test_2D_pseudo_parallel(2, 8, 2)
+    test_2D_v2(None, 64, 2)
     # test_2D(None)

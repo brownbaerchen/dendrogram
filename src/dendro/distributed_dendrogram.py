@@ -306,29 +306,56 @@ def shares_row(a, b):
 class DistributedDendrogramV2(Dendrogram):
     @staticmethod
     def compute(data, **kwargs):
-        ntasks = 2
-        elements_per_task = data.shape[0] // ntasks
-        local_slices = [
-            slice(i * elements_per_task, (i + 1) * elements_per_task)
-            for i in range(ntasks)
-        ]
-
-        local_dendrograms = [
-            Dendrogram.compute(np.array(data[s])) for s in local_slices
-        ]
-
-        for i, dendrogram in enumerate(local_dendrograms):
-            for structure in dendrogram.all_structures:
-                offset = np.zeros((1, data.ndim), int)
-                offset[:, 0] = local_slices[i].start
-                structure._indices = np.array(structure._indices) + offset
+        assert isinstance(data, ht.DNDarray)
 
         self = DistributedDendrogramV2()
         self.data = data
+        self.comm = data.comm
 
-        structures = self.communicate_structures(local_dendrograms)
+        # if not data.is_distributed():
+        #     return Dendrogram.compute(data.numpy(), **kwargs)
+
+        local_dendrogram = self.compute_local_dendrogram(**kwargs)
+
+        structures = self.communicate_structures(local_dendrogram)
+
         self.compute_from_structures(structures)
         return self
+
+    def compute_local_dendrogram(self, **kwargs):
+        data = self.data
+        comm = data.comm
+
+        local_dendrogram = Dendrogram.compute(data.larray.numpy(), **kwargs)
+
+        # add offsets to local indices
+        _, offsets = data.counts_displs()
+        offset = np.zeros((1, data.ndim), dtype=int)
+        offset[:, data.split] = offsets[comm.rank]
+        for structure in local_dendrogram.all_structures:
+            structure._indices = np.array(structure._indices) + offset
+
+        return local_dendrogram
+
+    def communicate_structures(self, local_dendrogram):
+        structures = [structure for structure in local_dendrogram.all_structures]
+
+        # unpack data from structures for communication
+        raw_data = [
+            (structure.idx, structure._indices, structure._values)
+            for structure in structures
+        ]
+
+        # communicate the data
+        all_raw_data = self.comm.allgather(raw_data)
+
+        # repack the data into structures
+        for i, _data in enumerate(all_raw_data):
+            if i != self.comm.rank:
+                for me in _data:
+                    structures += [Structure(idx=me[0], indices=me[1], values=me[2])]
+
+        return structures
 
     @staticmethod
     def compute_pseudo_parallel(data, ntasks):
@@ -364,18 +391,6 @@ class DistributedDendrogramV2(Dendrogram):
 
         self.compute_from_structures(all_structures)
         return self
-
-    def communicate_structures(self, local_dendrograms):
-        all_structures = []
-        for d in local_dendrograms:
-            structures = [structure for structure in d.all_structures]
-            offset = len(all_structures)
-            for structure in structures:
-                d.index_map[d.index_map == structure.idx] += offset
-                structure.idx += offset
-
-            all_structures += structures
-        return all_structures
 
     def compute_from_structures(self, structures):
 
