@@ -327,7 +327,7 @@ class DistributedDendrogramV2(Dendrogram):
         self.data = data
 
         structures = self.communicate_structures(local_dendrograms)
-        self.merge_dendrograms(structures)
+        self.compute_from_structures(structures)
         return self
 
     def communicate_structures(self, local_dendrograms):
@@ -342,7 +342,7 @@ class DistributedDendrogramV2(Dendrogram):
             all_structures += structures
         return all_structures
 
-    def merge_dendrograms(self, structures):
+    def compute_from_structures(self, structures):
 
         merged_structures = []
         self.index_map = -np.ones(np.add(self.data.shape, 1), dtype=np.int32)
