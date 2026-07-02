@@ -349,25 +349,10 @@ class DistributedDendrogramV2(Dendrogram):
             to_merge = all_structures.pop(idx)
 
             # figure out if we need to break apart the structure
-            if (
-                len(
-                    [
-                        structure.vmax
-                        for structure in all_structures
-                        if structure.idx > 0
-                    ]
-                )
-                > 0
-            ):
-                vmax_other = np.max(
-                    [
-                        structure.vmax
-                        for structure in all_structures
-                        if structure.idx > 0
-                    ]
-                )
-            else:
-                vmax_other = to_merge.vmin
+            vmax_other = np.max(
+                [structure.vmax for structure in all_structures if structure.idx > 0]
+                + [to_merge.vmin]
+            )
 
             if vmax_other > to_merge.vmin:
                 top_mask = to_merge._values > vmax_other
