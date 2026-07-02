@@ -43,6 +43,9 @@ d2 = DistributedDendrogramV2.compute(distributed_data, **kwargs)
 t1 = perf_counter()
 t_heat_v2 = t1 - t0
 _print(
+    f"Heat V2 needed {d2.time_local_dendrogram:.4f}s to compute the local dendrogram and {d2.time_merge_dendrograms:.4f} for the global one"
+)
+_print(
     f"Heat V2 needed {t_heat_v2:.4f} s ({t_heat_v2 / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
 )
 d2.data = d2.data.numpy()
@@ -58,7 +61,7 @@ _print(
 )
 
 
-if ht.comm.rank == 0:
-    d2.wcs = wcs
-    v = d2.viewer()
-    v.show()
+# if ht.comm.rank == 0:
+#     d2.wcs = wcs
+#     v = d2.viewer()
+#     v.show()
