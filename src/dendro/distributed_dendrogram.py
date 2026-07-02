@@ -325,10 +325,12 @@ class DistributedDendrogramV2(Dendrogram):
 
         self = DistributedDendrogramV2()
         self.data = data
-        self.merge_dendrograms(local_dendrograms)
+
+        structures = self.communicate_structures(local_dendrograms)
+        self.merge_dendrograms(structures)
         return self
 
-    def merge_dendrograms(self, local_dendrograms):
+    def communicate_structures(self, local_dendrograms):
         all_structures = []
         for d in local_dendrograms:
             structures = [structure for structure in d.all_structures]
@@ -338,19 +340,22 @@ class DistributedDendrogramV2(Dendrogram):
                 structure.idx += offset
 
             all_structures += structures
+        return all_structures
+
+    def merge_dendrograms(self, structures):
 
         merged_structures = []
         self.index_map = -np.ones(np.add(self.data.shape, 1), dtype=np.int32)
 
-        while len(all_structures) > 0:
-            vmax = [structure.vmax for structure in all_structures]
+        while len(structures) > 0:
+            vmax = [structure.vmax for structure in structures]
             idx = np.argmax(vmax)
 
-            to_merge = all_structures.pop(idx)
+            to_merge = structures.pop(idx)
 
             # figure out if we need to break apart the structure
             vmax_other = np.max(
-                [structure.vmax for structure in all_structures if structure.idx > 0]
+                [structure.vmax for structure in structures if structure.idx > 0]
                 + [to_merge.vmin]
             )
 
@@ -368,14 +373,14 @@ class DistributedDendrogramV2(Dendrogram):
                     idx=to_merge.idx,
                     dendrogram=self,
                 )
-                uid = min([structure.idx for structure in all_structures]) - 1
+                uid = min([structure.idx for structure in structures]) - 1
                 bottom_part = Structure(
                     indices=to_merge._indices[~top_mask],
                     values=to_merge._values[~top_mask],
                     idx=uid,
                     dendrogram=self,
                 )
-                all_structures.append(bottom_part)
+                structures.append(bottom_part)
 
                 to_merge = top_part
 
