@@ -28,13 +28,12 @@ class Structure(astrodendro_structure):
 
         self._indices = indices
         self._values = values
-        self._vmin, self._vmax = np.min(values), np.max(values)
-
-        self._smallest_index = np.min(self._indices)
-
         self.idx = idx
 
-        self._reset_cache()
+        self._vmin, self._vmax = np.min(values), np.max(values)
+        if idx >= 0:
+            self._smallest_index = np.min(self._indices)
+            self._reset_cache()
 
 
 class DistributedDendrogram(Dendrogram):
@@ -258,7 +257,6 @@ class DistributedDendrogram(Dendrogram):
                     np.max(structure._values),
                 )
                 structure._smallest_index = np.min(structure._indices)
-                structure._reset_cache()
                 dendrogram.index_map[*chunk.T] = structure.idx
 
             else:  # create parent structure
@@ -398,18 +396,18 @@ class DistributedDendrogramV2(Dendrogram):
         self.index_map = -np.ones(np.add(self.data.shape, 1), dtype=np.int32)
 
         while len(structures) > 0:
-            vmax = [structure.vmax for structure in structures]
+            vmax = [structure._vmax for structure in structures]
             idx = np.argmax(vmax)
 
             to_merge = structures.pop(idx)
 
             # figure out if we need to break apart the structure
             vmax_other = np.max(
-                [structure.vmax for structure in structures if structure.idx >= 0]
-                + [to_merge.vmin]
+                [structure._vmax for structure in structures if structure.idx >= 0]
+                + [to_merge._vmin]
             )
 
-            if vmax_other > to_merge.vmin:
+            if vmax_other > to_merge._vmin:
                 top_mask = to_merge._values > vmax_other
 
                 if not isinstance(to_merge._values, np.ndarray):
@@ -423,7 +421,7 @@ class DistributedDendrogramV2(Dendrogram):
                     idx=to_merge.idx,
                     dendrogram=self,
                 )
-                uid = min([structure.idx for structure in structures]) - 1
+                uid = np.min([structure.idx for structure in structures]) - 1
                 bottom_part = Structure(
                     indices=to_merge._indices[~top_mask],
                     values=to_merge._values[~top_mask],
@@ -465,7 +463,6 @@ class DistributedDendrogramV2(Dendrogram):
                     np.max(merge_into._values),
                 )
                 merge_into._smallest_index = np.min(merge_into._indices)
-                merge_into._reset_cache()
                 self.index_map[*to_merge._indices.T] = merge_into.idx
 
             else:  # create new branch
