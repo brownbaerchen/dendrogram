@@ -35,7 +35,6 @@ _print(f"Astrodendro needed {t_astrodendro:.4f} s")
 ht.comm.Barrier()
 
 distributed_data = ht.array(data, split=0)
-print(distributed_data.lshape)
 
 ht.comm.Barrier()
 
@@ -46,6 +45,7 @@ t_heat_v2 = t1 - t0
 _print(
     f"Heat V2 needed {t_heat_v2:.4f} s ({t_heat_v2 / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
 )
+d2.data = d2.data.numpy()
 
 ht.comm.Barrier()
 
