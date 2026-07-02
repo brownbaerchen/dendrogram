@@ -306,7 +306,7 @@ def shares_row(a, b):
 class DistributedDendrogramV2(Dendrogram):
     @staticmethod
     def compute(data, **kwargs):
-        ntasks = 4
+        ntasks = 2
         elements_per_task = data.shape[0] // ntasks
         local_slices = [
             slice(i * elements_per_task, (i + 1) * elements_per_task)
@@ -328,6 +328,41 @@ class DistributedDendrogramV2(Dendrogram):
 
         structures = self.communicate_structures(local_dendrograms)
         self.compute_from_structures(structures)
+        return self
+
+    @staticmethod
+    def compute_pseudo_parallel(data, ntasks):
+        # data = data.numpy()
+        self = DistributedDendrogramV2()
+        self.data = data
+
+        elements_per_task = data.shape[0] // ntasks
+        local_slices = [
+            slice(i * elements_per_task, (i + 1) * elements_per_task)
+            for i in range(ntasks)
+        ]
+
+        local_dendrograms = [
+            Dendrogram.compute(np.array(data[s])) for s in local_slices
+        ]
+
+        for i, dendrogram in enumerate(local_dendrograms):
+            for structure in dendrogram.all_structures:
+                offset = np.zeros((1, data.ndim), int)
+                offset[:, 0] = local_slices[i].start
+                structure._indices = np.array(structure._indices) + offset
+
+        all_structures = []
+        for d in local_dendrograms:
+            structures = [structure for structure in d.all_structures]
+            offset = len(all_structures)
+            for structure in structures:
+                d.index_map[d.index_map == structure.idx] += offset
+                structure.idx += offset
+
+            all_structures += structures
+
+        self.compute_from_structures(all_structures)
         return self
 
     def communicate_structures(self, local_dendrograms):
@@ -355,7 +390,7 @@ class DistributedDendrogramV2(Dendrogram):
 
             # figure out if we need to break apart the structure
             vmax_other = np.max(
-                [structure.vmax for structure in structures if structure.idx > 0]
+                [structure.vmax for structure in structures if structure.idx >= 0]
                 + [to_merge.vmin]
             )
 
