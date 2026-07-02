@@ -328,7 +328,7 @@ class DistributedDendrogramV2(Dendrogram):
         t0 = perf_counter()
         local_dendrogram = Dendrogram.compute(data.larray.numpy(), **kwargs)
         t1 = perf_counter()
-        self.time_local_dendrogram = t1-t0
+        self.time_local_dendrogram = t1 - t0
 
         # add offsets to local indices
         _, offsets = data.counts_displs()
@@ -395,12 +395,13 @@ class DistributedDendrogramV2(Dendrogram):
         return self
 
     def split_structure(self, structure, split_at, structures):
-        top_mask = structure._values > split_at
 
         if not isinstance(structure._values, np.ndarray):
             structure._values = np.array(structure._values)
         if not isinstance(structure._indices, np.ndarray):
             structure._indices = np.array(structure._indices)
+
+        top_mask = structure._values > split_at
 
         top_part = Structure(
             indices=structure._indices[top_mask],
@@ -418,7 +419,7 @@ class DistributedDendrogramV2(Dendrogram):
         return top_part, bottom_part
 
     @staticmethod
-    def sort_structures( structures):
+    def sort_structures(structures):
         vmax = [structure._vmax for structure in structures]
         return [structures[i] for i in np.argsort(vmax)[::-1]]
 
@@ -432,17 +433,25 @@ class DistributedDendrogramV2(Dendrogram):
         t0 = perf_counter()
         while len(structures) > 0:
             # print(len(structures), len([me for me in structures if me.idx <0]), self.data.size)
-            vmax = [structure._vmax for structure in structures]
-            idx = np.argmax(vmax)
-
-            to_merge = structures.pop(idx)
+            to_merge = structures.pop(0)
 
             # figure out if we need to break apart the structure
             vmax_other = structures[0]._vmax if len(structures) > 0 else to_merge._vmin
 
-            if vmax_other > to_merge._vmin:
-                top_part, bottom_part = self.split_structure(to_merge, vmax_other, structures)
-                structures.append(bottom_part)
+            if (
+                vmax_other > to_merge._vmin
+                and vmax_other < to_merge._vmax
+                and to_merge.idx >= 0
+            ):
+                top_part, bottom_part = self.split_structure(
+                    to_merge, vmax_other, structures
+                )
+                if bottom_part._vmax > structures[0]._vmax:
+                    structures = [bottom_part] + structures
+                elif bottom_part._vmax < structures[-1]._vmax:
+                    structures.append(bottom_part)
+                else:
+                    structures = self.sort_structures(structures + [bottom_part])
 
                 to_merge = top_part
 
@@ -492,7 +501,7 @@ class DistributedDendrogramV2(Dendrogram):
 
             # print(to_merge.idx, len(to_merge._values), np.bincount(self.index_map.flatten()+1), adjacent_structures)
         t1 = perf_counter()
-        self.time_merge_dendrograms = t1-t0
+        self.time_merge_dendrograms = t1 - t0
 
         self._trunk = [
             structure for structure in merged_structures if structure.parent is None
