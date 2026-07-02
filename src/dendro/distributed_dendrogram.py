@@ -38,14 +38,14 @@ class Structure(astrodendro_structure):
 
 class DistributedDendrogram(Dendrogram):
     @staticmethod
-    def compute(data):
+    def compute(data, **kwargs):
         assert isinstance(data, ht.DNDarray)
 
-        if not data.is_distributed():
-            return Dendrogram.compute(data.numpy())
+        # if not data.is_distributed():
+        #     return Dendrogram.compute(data.numpy(), **kwargs)
 
         # compute local dendrogram
-        indices, values = DistributedDendrogram.get_local_structures(data)
+        indices, values = DistributedDendrogram.get_local_structures(data, **kwargs)
 
         # chunk structures in local dendrograms at global extrema
         chunks = DistributedDendrogram.chunk_local_structures(
@@ -61,12 +61,12 @@ class DistributedDendrogram(Dendrogram):
         return DistributedDendrogram.merge_chunks(chunks, global_data)
 
     @staticmethod
-    def get_local_structures(data):
+    def get_local_structures(data, **kwargs):
         assert isinstance(data, ht.DNDarray)
         comm = data.comm
 
         # compute local dendrograms
-        local_dendrogram = Dendrogram.compute(data.larray.numpy())
+        local_dendrogram = Dendrogram.compute(data.larray.numpy(), **kwargs)
         indices = [
             np.array(structure._indices)
             for structure in local_dendrogram.all_structures
@@ -99,18 +99,27 @@ class DistributedDendrogram(Dendrogram):
         return list(np.unique(sorted(minima + maxima)))
 
     @staticmethod
-    def chunk_local_structures(indices, values, comm=None):
+    def chunk_local_structures(indices, values, comm=None, min_value="min"):
         local_extrema = DistributedDendrogram.get_local_extrema(values, comm)
+
+        if min_value != "min":
+            local_extrema = np.array(local_extrema)
+            local_extrema = list(local_extrema[local_extrema > 2])
 
         chunks = []
         for idx, val in zip(indices, values):
-            idx = np.array(idx)
-            val = np.array(val)
+            if not isinstance(idx, np.ndarray):
+                idx = np.array(idx)
+            if not isinstance(val, np.ndarray):
+                val = np.array(val)
 
-            start_idx = local_extrema.index(np.min(val))
-            stop_idx = local_extrema.index(np.max(val))
+            try:
+                start_idx = local_extrema.index(np.min(val))
+                stop_idx = local_extrema.index(np.max(val))
 
-            chunk_along = local_extrema[start_idx + 1 : stop_idx]
+                chunk_along = local_extrema[start_idx + 1 : stop_idx]
+            except ValueError:
+                chunk_along = []
 
             if len(chunk_along) == 0:
                 chunks.append(idx)
@@ -203,6 +212,8 @@ class DistributedDendrogram(Dendrogram):
         dendrogram.data = data
         dendrogram.index_map = -np.ones(np.add(data.shape, 1), dtype=np.int32)
 
+        # print(len(chunks) / data.size)
+
         # start with the first leaf
         structures = [
             Structure(
@@ -249,7 +260,8 @@ class DistributedDendrogram(Dendrogram):
                 structure._reset_cache()
                 dendrogram.index_map[*chunk.T] = structure.idx
 
-            elif len(adjacent_structures) == 2:  # create parent structure
+            else:  # create parent structure
+                # TODO: merge insignificant structures
                 structures.append(
                     Structure(
                         chunk,
@@ -260,11 +272,6 @@ class DistributedDendrogram(Dendrogram):
                     )
                 )
                 dendrogram.index_map[*chunk.T] = structures[-1].idx
-
-            else:
-                raise Exception(
-                    f"Chunk is adjacent to {len(adjacent_structures)} structures, which is not supposed to happen"
-                )
 
         # identify trunk
         dendrogram._trunk = [
