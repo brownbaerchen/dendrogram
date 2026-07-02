@@ -1,6 +1,7 @@
 import heat as ht
 import numpy as np
 from numba import njit
+from time import perf_counter
 
 from astrodendro.dendrogram import Dendrogram
 from astrodendro.structure import Structure as astrodendro_structure
@@ -324,7 +325,10 @@ class DistributedDendrogramV2(Dendrogram):
         data = self.data
         comm = data.comm
 
+        t0 = perf_counter()
         local_dendrogram = Dendrogram.compute(data.larray.numpy(), **kwargs)
+        t1 = perf_counter()
+        self.time_local_dendrogram = t1-t0
 
         # add offsets to local indices
         _, offsets = data.counts_displs()
@@ -390,44 +394,54 @@ class DistributedDendrogramV2(Dendrogram):
         self.compute_from_structures(all_structures)
         return self
 
+    def split_structure(self, structure, split_at, structures):
+        top_mask = structure._values > split_at
+
+        if not isinstance(structure._values, np.ndarray):
+            structure._values = np.array(structure._values)
+        if not isinstance(structure._indices, np.ndarray):
+            structure._indices = np.array(structure._indices)
+
+        top_part = Structure(
+            indices=structure._indices[top_mask],
+            values=structure._values[top_mask],
+            idx=structure.idx,
+            dendrogram=self,
+        )
+        uid = np.min([structure.idx for structure in structures]) - 1
+        bottom_part = Structure(
+            indices=structure._indices[~top_mask],
+            values=structure._values[~top_mask],
+            idx=uid,
+            dendrogram=self,
+        )
+        return top_part, bottom_part
+
+    @staticmethod
+    def sort_structures( structures):
+        vmax = [structure._vmax for structure in structures]
+        return [structures[i] for i in np.argsort(vmax)[::-1]]
+
     def compute_from_structures(self, structures):
 
         merged_structures = []
         self.index_map = -np.ones(np.add(self.data.shape, 1), dtype=np.int32)
 
+        structures = self.sort_structures(structures)
+
+        t0 = perf_counter()
         while len(structures) > 0:
+            # print(len(structures), len([me for me in structures if me.idx <0]), self.data.size)
             vmax = [structure._vmax for structure in structures]
             idx = np.argmax(vmax)
 
             to_merge = structures.pop(idx)
 
             # figure out if we need to break apart the structure
-            vmax_other = np.max(
-                [structure._vmax for structure in structures if structure.idx >= 0]
-                + [to_merge._vmin]
-            )
+            vmax_other = structures[0]._vmax if len(structures) > 0 else to_merge._vmin
 
             if vmax_other > to_merge._vmin:
-                top_mask = to_merge._values > vmax_other
-
-                if not isinstance(to_merge._values, np.ndarray):
-                    to_merge._values = np.array(to_merge._values)
-                if not isinstance(to_merge._indices, np.ndarray):
-                    to_merge._indices = np.array(to_merge._indices)
-
-                top_part = Structure(
-                    indices=to_merge._indices[top_mask],
-                    values=to_merge._values[top_mask],
-                    idx=to_merge.idx,
-                    dendrogram=self,
-                )
-                uid = np.min([structure.idx for structure in structures]) - 1
-                bottom_part = Structure(
-                    indices=to_merge._indices[~top_mask],
-                    values=to_merge._values[~top_mask],
-                    idx=uid,
-                    dendrogram=self,
-                )
+                top_part, bottom_part = self.split_structure(to_merge, vmax_other, structures)
                 structures.append(bottom_part)
 
                 to_merge = top_part
@@ -477,6 +491,8 @@ class DistributedDendrogramV2(Dendrogram):
                 merged_structures.append(branch)
 
             # print(to_merge.idx, len(to_merge._values), np.bincount(self.index_map.flatten()+1), adjacent_structures)
+        t1 = perf_counter()
+        self.time_merge_dendrograms = t1-t0
 
         self._trunk = [
             structure for structure in merged_structures if structure.parent is None
