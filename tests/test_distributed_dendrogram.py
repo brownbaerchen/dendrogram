@@ -196,6 +196,17 @@ def test_2D(mpi_ranks, res=64, n_peaks=3):
     compare_dendrograms(reference_dendrogram, dendrogram)
 
 
+def test_2D_v2(res=64, n_peaks=3):
+    from dendro.utils import get_2d_data
+    from dendro.distributed_dendrogram import DistributedDendrogramV2
+
+    X, Y, data = get_2d_data(res, n_peaks)
+
+    dendrogram = DistributedDendrogramV2.compute(data)
+    reference_dendrogram = Dendrogram.compute(data.numpy())
+    compare_dendrograms(reference_dendrogram, dendrogram)
+
+
 @pytest.mark.mpi(ranks=[1, 2])
 @pytest.mark.parametrize(
     "res",

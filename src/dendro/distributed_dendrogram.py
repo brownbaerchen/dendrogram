@@ -21,9 +21,10 @@ class Structure(astrodendro_structure):
             self._indices = [indices]
             self._values = [values]
 
-        if not isinstance(indices, np.ndarray) and isinstance(values, np.ndarray):
-            self._indices = np.array(indices)
-            self._values = np.array(values)
+        if not isinstance(indices, np.ndarray):
+            indices = np.array(indices)
+        if not isinstance(values, np.ndarray):
+            values = np.array(values)
 
         self._indices = indices
         self._values = values
@@ -300,3 +301,164 @@ def shares_row(a, b):
             if np.all(rowa == rowb):
                 return True
     return False
+
+
+class DistributedDendrogramV2(Dendrogram):
+    def compute(data, **kwargs):
+        ntasks = 4
+        elements_per_task = data.shape[0] // ntasks
+        local_slices = [
+            slice(i * elements_per_task, (i + 1) * elements_per_task)
+            for i in range(ntasks)
+        ]
+
+        local_dendrograms = [
+            Dendrogram.compute(np.array(data[s])) for s in local_slices
+        ]
+
+        for i, dendrogram in enumerate(local_dendrograms):
+            for structure in dendrogram.all_structures:
+                offset = np.zeros((1, data.ndim), int)
+                offset[:, 0] = local_slices[i].start
+                structure._indices = np.array(structure._indices) + offset
+
+        all_structures = []
+        for d in local_dendrograms:
+            structures = [structure for structure in d.all_structures]
+            offset = len(all_structures)
+            for structure in structures:
+                d.index_map[d.index_map == structure.idx] += offset
+                structure.idx += offset
+
+            all_structures += structures
+
+        merged_structures = []
+        self = Dendrogram()
+        self.index_map = -np.ones(np.add(data.shape, 1), dtype=np.int32)
+        self.data = data
+
+        while len(all_structures) > 0:
+            vmax = [structure.vmax for structure in all_structures]
+            idx = np.argmax(vmax)
+
+            to_merge = all_structures.pop(idx)
+
+            # figure out if we need to break apart the structure
+            if (
+                len(
+                    [
+                        structure.vmax
+                        for structure in all_structures
+                        if structure.idx > 0
+                    ]
+                )
+                > 0
+            ):
+                vmax_other = np.max(
+                    [
+                        structure.vmax
+                        for structure in all_structures
+                        if structure.idx > 0
+                    ]
+                )
+            else:
+                vmax_other = to_merge.vmin
+
+            if vmax_other > to_merge.vmin:
+                top_mask = to_merge._values > vmax_other
+
+                if not isinstance(to_merge._values, np.ndarray):
+                    to_merge._values = np.array(to_merge._values)
+                if not isinstance(to_merge._indices, np.ndarray):
+                    to_merge._indices = np.array(to_merge._indices)
+
+                top_part = Structure(
+                    indices=to_merge._indices[top_mask],
+                    values=to_merge._values[top_mask],
+                    idx=to_merge.idx,
+                    dendrogram=self,
+                )
+                uid = min([structure.idx for structure in all_structures]) - 1
+                bottom_part = Structure(
+                    indices=to_merge._indices[~top_mask],
+                    values=to_merge._values[~top_mask],
+                    idx=uid,
+                    dendrogram=self,
+                )
+                all_structures.append(bottom_part)
+
+                to_merge = top_part
+
+            # find adjacent structures
+            def get_adjacent_structure_indices(structure, index_map):
+                adjacent = []
+                idx = np.array(structure._indices)
+                for i in range(idx.shape[1]):
+                    one = np.zeros((1, idx.shape[1]), dtype=int)
+                    one[:, i] = 1
+                    adjacent += list(index_map[*(idx + one).T])
+                    adjacent += list(index_map[*(idx - one).T])
+                return [me for me in np.unique(adjacent) if me >= 0]
+
+            adjacent_structure_indices = get_adjacent_structure_indices(
+                to_merge, self.index_map
+            )
+            ancestor_indices = np.unique(
+                [merged_structures[i].ancestor.idx for i in adjacent_structure_indices]
+            )
+            adjacent_structures = [merged_structures[i] for i in ancestor_indices]
+
+            # merge the structure into the dendrogram
+            if len(adjacent_structures) == 0:  # create new leaf
+                leaf = Structure(
+                    indices=to_merge._indices,
+                    values=to_merge._values,
+                    idx=len(merged_structures),
+                    children=[],
+                    dendrogram=self,
+                )
+                self.index_map[*leaf._indices.T] = leaf.idx
+                merged_structures.append(leaf)
+            elif len(adjacent_structures) == 1:  # merge into existing structure
+                merge_into = adjacent_structures[0]
+                merge_into._indices = np.vstack(
+                    [merge_into._indices, to_merge._indices]
+                )
+                merge_into._values = np.append(merge_into._values, to_merge._values)
+                merge_into._vmin, merge_into._vmax = (
+                    np.min(merge_into._values),
+                    np.max(merge_into._values),
+                )
+                merge_into._smallest_index = np.min(merge_into._indices)
+                merge_into._reset_cache()
+                self.index_map[*to_merge._indices.T] = merge_into.idx
+
+            else:  # create new branch
+                branch = Structure(
+                    indices=to_merge._indices,
+                    values=to_merge._values,
+                    idx=len(merged_structures),
+                    children=adjacent_structures,
+                    dendrogram=self,
+                )
+                self.index_map[*branch._indices.T] = branch.idx
+                merged_structures.append(branch)
+
+            # print(to_merge.idx, len(to_merge._values), np.bincount(self.index_map.flatten()+1), adjacent_structures)
+
+        self._trunk = [
+            structure for structure in merged_structures if structure.parent is None
+        ]
+
+        # make astrodendro-compatible
+        for structure in merged_structures:
+            structure._level = 0
+            if structure.parent is not None:
+                parent = structure.parent
+                while parent is not None:
+                    structure._level += 1
+                    parent = parent.parent
+
+            structure._values = list(structure._values)
+            structure._indices = [tuple(me) for me in structure._indices]
+        return self
