@@ -395,17 +395,7 @@ class DistributedDendrogramV2(Dendrogram):
                 to_merge = top_part
 
             # find adjacent structures
-            def get_adjacent_structure_indices(structure, index_map):
-                adjacent = []
-                idx = np.array(structure._indices)
-                for i in range(idx.shape[1]):
-                    one = np.zeros((1, idx.shape[1]), dtype=int)
-                    one[:, i] = 1
-                    adjacent += list(index_map[*(idx + one).T])
-                    adjacent += list(index_map[*(idx - one).T])
-                return [me for me in np.unique(adjacent) if me >= 0]
-
-            adjacent_structure_indices = get_adjacent_structure_indices(
+            adjacent_structure_indices = self.get_adjacent_structure_indices(
                 to_merge, self.index_map
             )
             ancestor_indices = np.unique(
@@ -466,4 +456,14 @@ class DistributedDendrogramV2(Dendrogram):
 
             structure._values = list(structure._values)
             structure._indices = [tuple(me) for me in structure._indices]
-        return self
+
+    @staticmethod
+    def get_adjacent_structure_indices(structure, index_map):
+        adjacent = []
+        idx = np.array(structure._indices)
+        for i in range(idx.shape[1]):
+            one = np.zeros((1, idx.shape[1]), dtype=int)
+            one[:, i] = 1
+            adjacent += list(index_map[*(idx + one).T])
+            adjacent += list(index_map[*(idx - one).T])
+        return [me for me in np.unique(adjacent) if me >= 0]
