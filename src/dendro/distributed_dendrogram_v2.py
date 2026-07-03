@@ -159,16 +159,15 @@ class DistributedDendrogramV2(Dendrogram):
             vmax_other = structures[0]._vmax if len(structures) > 0 else to_merge._vmin
 
             if (
-                vmax_other > to_merge._vmin
-                and vmax_other < to_merge._vmax
-                and to_merge.idx >= 0
+                vmax_other > to_merge._vmin and vmax_other < to_merge._vmax
+                # and to_merge.idx >= 0
             ):
                 top_part, bottom_part = self.split_structure(
                     to_merge, vmax_other, structures
                 )
                 if bottom_part._vmax > structures[0]._vmax:
                     structures = [bottom_part] + structures
-                elif bottom_part._vmax < structures[-1]._vmax:
+                elif bottom_part._vmax <= structures[-1]._vmax:
                     structures.append(bottom_part)
                 else:
                     structures = self.insert_structure(structures, bottom_part)
