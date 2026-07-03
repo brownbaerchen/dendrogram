@@ -325,8 +325,10 @@ class DistributedDendrogramV2(Dendrogram):
         data = self.data
         comm = data.comm
 
+        self.comm.Barrier()
         t0 = perf_counter()
         local_dendrogram = Dendrogram.compute(data.larray.numpy(), **kwargs)
+        self.comm.Barrier()
         t1 = perf_counter()
         self.time_local_dendrogram = t1 - t0
 
@@ -394,6 +396,13 @@ class DistributedDendrogramV2(Dendrogram):
         self.compute_from_structures(all_structures)
         return self
 
+    def get_uid(self):
+        if not hasattr(self, "_uid"):
+            self._uid = -1
+        else:
+            self._uid -= 1
+        return self._uid
+
     def split_structure(self, structure, split_at, structures):
 
         if not isinstance(structure._values, np.ndarray):
@@ -409,11 +418,10 @@ class DistributedDendrogramV2(Dendrogram):
             idx=structure.idx,
             dendrogram=self,
         )
-        uid = np.min([structure.idx for structure in structures]) - 1
         bottom_part = Structure(
             indices=structure._indices[~top_mask],
             values=structure._values[~top_mask],
-            idx=uid,
+            idx=self.get_uid(),
             dendrogram=self,
         )
         return top_part, bottom_part
@@ -423,15 +431,25 @@ class DistributedDendrogramV2(Dendrogram):
         vmax = [structure._vmax for structure in structures]
         return [structures[i] for i in np.argsort(vmax)[::-1]]
 
+    @staticmethod
+    def insert_structure(structures, insert):
+        vmax = np.array([structure._vmax for structure in structures])
+        insert_at = np.nonzero(vmax < insert._vmax)[0][0]
+        return structures[:insert_at] + [insert] + structures[insert_at:]
+
     def compute_from_structures(self, structures):
+        # TODO: this only works for two tasks. I need to break up structures up to ntasks-1 times.
 
         merged_structures = []
         self.index_map = -np.ones(np.add(self.data.shape, 1), dtype=np.int32)
 
         structures = self.sort_structures(structures)
 
+        self._iterations = 0
+        self.comm.Barrier()
         t0 = perf_counter()
         while len(structures) > 0:
+            self._iterations += 1
             # print(len(structures), len([me for me in structures if me.idx <0]), self.data.size)
             to_merge = structures.pop(0)
 
@@ -451,7 +469,7 @@ class DistributedDendrogramV2(Dendrogram):
                 elif bottom_part._vmax < structures[-1]._vmax:
                     structures.append(bottom_part)
                 else:
-                    structures = self.sort_structures(structures + [bottom_part])
+                    structures = self.insert_structure(structures, bottom_part)
 
                 to_merge = top_part
 
@@ -500,6 +518,7 @@ class DistributedDendrogramV2(Dendrogram):
                 merged_structures.append(branch)
 
             # print(to_merge.idx, len(to_merge._values), np.bincount(self.index_map.flatten()+1), adjacent_structures)
+        self.comm.Barrier()
         t1 = perf_counter()
         self.time_merge_dendrograms = t1 - t0
 
