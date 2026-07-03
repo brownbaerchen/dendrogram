@@ -141,8 +141,6 @@ class DistributedDendrogramV2(Dendrogram):
         return structures[:insert_at] + [insert] + structures[insert_at:]
 
     def compute_from_structures(self, structures):
-        # TODO: this only works for two tasks. I need to break up structures up to ntasks-1 times.
-
         merged_structures = []
         self.index_map = -np.ones(np.add(self.data.shape, 1), dtype=np.int32)
 

@@ -1,4 +1,5 @@
 import heat as ht
+import numpy as np
 
 
 def get_1d_data(n):
@@ -33,3 +34,29 @@ def get_2d_data(n, n_peaks=-1):
         )
 
     return X, Y, data
+
+
+def compare_dendrograms(ref_dendrogram, other_dendrogram):
+    from dendro.distributed_dendrogram import shares_row
+
+    n_structures1 = len([me for me in ref_dendrogram.all_structures])
+    n_structures2 = len([me for me in other_dendrogram.all_structures])
+    assert n_structures1 == n_structures2, (
+        f"Got {n_structures1} structures in reference dendrogram, but {n_structures2} in other one"
+    )
+
+    for structure in ref_dendrogram.all_structures:
+        corresponds_to = [
+            ref_struct
+            for ref_struct in other_dendrogram.all_structures
+            if np.any(
+                shares_row(np.array(structure._indices), np.array(ref_struct._indices))
+            )
+        ]
+        assert len(corresponds_to) == 1, (
+            f"Structure in reference dendrogram corresponds to {len(corresponds_to)} structures in the merged one"
+        )
+        assert np.allclose(
+            np.sort(np.array(structure._indices).flatten()),
+            np.sort(np.array(corresponds_to[0]._indices).flatten()),
+        ), "Indices dont match between merged and reference structure"

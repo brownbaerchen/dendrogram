@@ -1,6 +1,8 @@
 import pytest
-from dendro.distributed_dendrogram import DistributedDendrogram, Dendrogram
 import numpy as np
+
+from dendro.distributed_dendrogram import DistributedDendrogram, Dendrogram
+from dendro.utils import compare_dendrograms
 
 
 def test_is_adjacent():
@@ -105,32 +107,6 @@ def test_chunk_local_structures():
     )
 
 
-def compare_dendrograms(ref_dendrogram, other_dendrogram):
-    from dendro.distributed_dendrogram import shares_row
-
-    n_structures1 = len([me for me in ref_dendrogram.all_structures])
-    n_structures2 = len([me for me in other_dendrogram.all_structures])
-    assert n_structures1 == n_structures2, (
-        f"Got {n_structures1} structures in reference dendrogram, but {n_structures2} in other one"
-    )
-
-    for structure in ref_dendrogram.all_structures:
-        corresponds_to = [
-            ref_struct
-            for ref_struct in other_dendrogram.all_structures
-            if np.any(
-                shares_row(np.array(structure._indices), np.array(ref_struct._indices))
-            )
-        ]
-        assert len(corresponds_to) == 1, (
-            f"Structure in reference dendrogram corresponds to {len(corresponds_to)} structures in the merged one"
-        )
-        assert np.allclose(
-            np.sort(np.array(structure._indices).flatten()),
-            np.sort(np.array(corresponds_to[0]._indices).flatten()),
-        ), "Indices dont match between merged and reference structure"
-
-
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("res", [32, 64, 128])
 @pytest.mark.parametrize("n_peaks", [1, 2, 4])
@@ -192,34 +168,6 @@ def test_2D(mpi_ranks, res=64, n_peaks=3):
     X, Y, data = get_2d_data(res, n_peaks)
 
     dendrogram = DistributedDendrogram.compute(data)
-    reference_dendrogram = Dendrogram.compute(data.numpy())
-    compare_dendrograms(reference_dendrogram, dendrogram)
-
-
-@pytest.mark.parametrize("ntasks", [1, 2, 4])
-@pytest.mark.parametrize("res", [32, 64])
-@pytest.mark.parametrize("n_peaks", [1, 2, 3, 4])
-def test_2D_v2_pseudo_parallel(ntasks, res, n_peaks):
-    from dendro.utils import get_2d_data
-    from dendro.distributed_dendrogram_v2 import DistributedDendrogramV2
-
-    _, _, data = get_2d_data(res, n_peaks)
-
-    dendrogram = DistributedDendrogramV2.compute_pseudo_parallel(data.numpy(), ntasks)
-    reference_dendrogram = Dendrogram.compute(data.numpy())
-    compare_dendrograms(reference_dendrogram, dendrogram)
-
-
-@pytest.mark.mpi(ranks=[1, 2])
-@pytest.mark.parametrize("res", [32])
-@pytest.mark.parametrize("n_peaks", [2, 3])
-def test_2D_v2(mpi_ranks, res, n_peaks):
-    from dendro.utils import get_2d_data
-    from dendro.distributed_dendrogram_v2 import DistributedDendrogramV2
-
-    _, _, data = get_2d_data(res, n_peaks)
-
-    dendrogram = DistributedDendrogramV2.compute(data)
     reference_dendrogram = Dendrogram.compute(data.numpy())
     compare_dendrograms(reference_dendrogram, dendrogram)
 
@@ -327,5 +275,4 @@ def test_1D_pseudo_parallel(ntasks):
 
 
 if __name__ == "__main__":
-    test_2D_v2(None, 64, 2)
-    # test_2D(None)
+    test_2D(None)
