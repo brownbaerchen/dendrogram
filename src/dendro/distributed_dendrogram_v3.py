@@ -170,6 +170,82 @@ class DistributedDendrogramV3(Dendrogram):
         )
         return structures
 
+    def merge_indidivual_structure(
+        self, to_merge, merged_structures, adjacent_structures, structures
+    ):
+        if len(adjacent_structures) == 0:  # create new leaf
+            leaf = Structure(
+                indices=to_merge._indices,
+                values=to_merge._values,
+                idx=len(merged_structures),
+                children=[],
+                dendrogram=self,
+            )
+            self.index_map[*leaf._indices.T] = leaf.idx
+            merged_structures.append(leaf)
+            self.logger.info(
+                f"Created new leaf with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f}."
+            )
+        elif len(adjacent_structures) == 1:  # merge into existing structure
+            merge_into = adjacent_structures[0]
+            if merge_into._vmin < to_merge._vmax and merge_into._vmin > to_merge._vmin:
+                to_merge, bottom_part = self.split_structure(
+                    to_merge, merge_into._vmin, structures
+                )
+                structures = self.insert_structure(structures, bottom_part)
+            elif (
+                merge_into._vmin < to_merge._vmin and merge_into._vmax > to_merge._vmin
+            ):
+                merge_into, bottom_part = self.split_structure(
+                    merge_into, to_merge._vmin, structures
+                )
+                structures = self.insert_structure(structures, bottom_part)
+
+            merge_into._indices = np.vstack([merge_into._indices, to_merge._indices])
+            merge_into._values = np.append(merge_into._values, to_merge._values)
+            merge_into._vmin = min([merge_into._vmin, to_merge._vmin])
+            merge_into._vmax = min([merge_into._vmax, to_merge._vmax])
+            merge_into._smallest_index = np.min(merge_into._indices)
+            self.index_map[*to_merge._indices.T] = merge_into.idx
+            self.logger.info(
+                f"Merged {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} into existing structure, which now has {len(merge_into._values)} values between {merge_into._vmin:.2f} and {merge_into._vmax:.2f}"
+            )
+
+        else:  # create new branch
+            for child in adjacent_structures:
+                if child._vmin < to_merge._vmax and child._vmin > to_merge._vmin:
+                    to_merge, bottom_part = self.split_structure(
+                        to_merge, child._vmin, structures
+                    )
+                    structures = self.insert_structure(structures, bottom_part)
+
+                    child, bottom_part_child = self.split_structure(
+                        child, to_merge._vmax, structures
+                    )
+                    structures = self.insert_structure(structures, bottom_part_child)
+
+                elif child._vmin < to_merge._vmin and child._vmax > to_merge._vmin:
+                    split_at = to_merge._vmax
+                    child, bottom_part = self.split_structure(
+                        child, split_at, structures
+                    )
+                    structures = self.insert_structure(structures, bottom_part)
+                    # TODO: also break apart to_merge?
+
+            branch = Structure(
+                indices=to_merge._indices,
+                values=to_merge._values,
+                idx=len(merged_structures),
+                children=adjacent_structures,
+                dendrogram=self,
+            )
+            self.index_map[*branch._indices.T] = branch.idx
+            merged_structures.append(branch)
+            self.logger.info(
+                f"Created branch with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} and {len(to_merge._children)} children."
+            )
+        return merged_structures, structures
+
     def compute_from_structures(self, structures):
         self.logger.info(
             f"Start merging {len(structures)} structures from local dendrograms into one global one."
@@ -200,87 +276,9 @@ class DistributedDendrogramV3(Dendrogram):
             )
 
             # merge the structure into the dendrogram
-            if len(adjacent_structures) == 0:  # create new leaf
-                leaf = Structure(
-                    indices=to_merge._indices,
-                    values=to_merge._values,
-                    idx=len(merged_structures),
-                    children=[],
-                    dendrogram=self,
-                )
-                self.index_map[*leaf._indices.T] = leaf.idx
-                merged_structures.append(leaf)
-                self.logger.info(
-                    f"Created new leaf with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f}."
-                )
-            elif len(adjacent_structures) == 1:  # merge into existing structure
-                merge_into = adjacent_structures[0]
-                if (
-                    merge_into._vmin < to_merge._vmax
-                    and merge_into._vmin > to_merge._vmin
-                ):
-                    to_merge, bottom_part = self.split_structure(
-                        to_merge, merge_into._vmin, structures
-                    )
-                    structures = self.insert_structure(structures, bottom_part)
-                elif (
-                    merge_into._vmin < to_merge._vmin
-                    and merge_into._vmax > to_merge._vmin
-                ):
-                    merge_into, bottom_part = self.split_structure(
-                        merge_into, to_merge._vmin, structures
-                    )
-                    structures = self.insert_structure(structures, bottom_part)
-
-                merge_into._indices = np.vstack(
-                    [merge_into._indices, to_merge._indices]
-                )
-                merge_into._values = np.append(merge_into._values, to_merge._values)
-                merge_into._vmin, merge_into._vmax = (
-                    np.min(merge_into._values),
-                    np.max(merge_into._values),
-                )
-                merge_into._smallest_index = np.min(merge_into._indices)
-                self.index_map[*to_merge._indices.T] = merge_into.idx
-                self.logger.info(
-                    f"Merged {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} into existing structure, which now has {len(merge_into._values)} values between {merge_into._vmin:.2f} and {merge_into._vmax:.2f}"
-                )
-
-            else:  # create new branch
-                for child in adjacent_structures:
-                    if child._vmin < to_merge._vmax and child._vmin > to_merge._vmin:
-                        to_merge, bottom_part = self.split_structure(
-                            to_merge, child._vmin, structures
-                        )
-                        structures = self.insert_structure(structures, bottom_part)
-
-                        child, bottom_part_child = self.split_structure(
-                            child, to_merge._vmax, structures
-                        )
-                        structures = self.insert_structure(
-                            structures, bottom_part_child
-                        )
-
-                    elif child._vmin < to_merge._vmin and child._vmax > to_merge._vmin:
-                        split_at = to_merge._vmax
-                        child, bottom_part = self.split_structure(
-                            child, split_at, structures
-                        )
-                        structures = self.insert_structure(structures, bottom_part)
-                        # TODO: also break apart to_merge?
-
-                branch = Structure(
-                    indices=to_merge._indices,
-                    values=to_merge._values,
-                    idx=len(merged_structures),
-                    children=adjacent_structures,
-                    dendrogram=self,
-                )
-                self.index_map[*branch._indices.T] = branch.idx
-                merged_structures.append(branch)
-                self.logger.info(
-                    f"Created branch with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} and {len(to_merge._children)} children."
-                )
+            merged_structures, structures = self.merge_indidivual_structure(
+                to_merge, merged_structures, adjacent_structures, structures
+            )
 
         t1 = perf_counter()
         self.time_merge_dendrograms = t1 - t0
