@@ -77,3 +77,18 @@ def plot_astrodendro_leaves(ax, x, data, leaves, level=0):
         plot_astrodendro_leaves(
             ax=ax, x=x, data=data, leaves=leaf._children, level=level + 1
         )
+
+
+def plot_astrodendro_tree_2D(ax, dendrogram, leaves, _plotter=None):
+    if _plotter is None:
+        _plotter = dendrogram.plotter()
+        data = (
+            dendrogram.data
+            if isinstance(dendrogram.data, np.ndarray)
+            else dendrogram.data.numpy()
+        )
+        ax.imshow(data)
+
+    for leaf in leaves:
+        _plotter.plot_contour(ax, structure=leaf)
+        plot_astrodendro_tree_2D(ax, dendrogram, leaf.children, _plotter=_plotter)

@@ -214,6 +214,9 @@ class DistributedDendrogramV3(Dendrogram):
 
             # merge the structure into the dendrogram
             if len(adjacent_structures) == 0:  # create new leaf
+                print(
+                    f"Creating new leaf from {to_merge._vmin:.2f} to {to_merge._vmax:.2f}"
+                )
                 leaf = Structure(
                     indices=to_merge._indices,
                     values=to_merge._values,
@@ -251,6 +254,8 @@ class DistributedDendrogramV3(Dendrogram):
                     structures = self.insert_structure(structures, bottom_part)
                     merge_into._indices = top_part._indices
                     merge_into._values = top_part._values
+                    merge_into._vmin = np.min(merge_into._values)
+                    merge_into._vmax = np.max(merge_into._values)
                     print(
                         f"    Breaking apart existing structure: Left is {merge_into._vmin:.2f} to {merge_into._vmax:.2f}, left to merge from {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}"
                     )
@@ -273,7 +278,7 @@ class DistributedDendrogramV3(Dendrogram):
                     print(
                         f"to_merge from {to_merge._vmin:.2f} to {to_merge._vmax:.2f}, child from {child._vmin:.2f} to {child._vmax:.2f}"
                     )
-                    if child._vmin < to_merge._vmax and child._vmin > to_merge._vmin:
+                    if child._vmin < to_merge._vmax and child._vmin >= to_merge._vmin:
                         top_part, bottom_part = self.split_structure(
                             to_merge, child._vmin, structures
                         )
@@ -295,20 +300,21 @@ class DistributedDendrogramV3(Dendrogram):
                         child._vmin = np.min(child._values)
                         child._vmax = np.max(child._values)
                         print(
-                            f"    Breaking apart existing structure: Left is {child._vmin:.2f} to {child._vmax:.2f}, left to merge from {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}"
+                            f"    Breaking apart existing structure at {to_merge._vmax:.2f}: Left is {child._vmin:.2f} to {child._vmax:.2f}, left to merge from {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}"
                         )
 
                     elif child._vmin < to_merge._vmin and child._vmax > to_merge._vmin:
+                        split_at = to_merge._vmax
                         top_part, bottom_part = self.split_structure(
-                            child, to_merge._vmin, structures
+                            child, split_at, structures
                         )
                         structures = self.insert_structure(structures, bottom_part)
                         child._indices = top_part._indices
                         child._values = top_part._values
-                        child._vmin = np.min(child._values)
-                        child._vmax = np.max(child._values)
+                        child._vmin = top_part._vmin
+                        child._vmax = top_part._vmax
                         print(
-                            f"    Breaking apart existing structure: Left is {child._vmin:.2f} to {child._vmax:.2f}, left to merge from {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}"
+                            f"    Breaking apart existing structure at {split_at:.2f}: Left is {child._vmin:.2f} to {child._vmax:.2f}, left to merge from {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}"
                         )
                         # TODO: also break apart to merge?
 

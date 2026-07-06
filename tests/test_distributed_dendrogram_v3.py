@@ -39,6 +39,16 @@ def test_2D_v3_pseudo_parallel(ntasks, res, n_peaks):
     dendrogram = DistributedDendrogramV3.compute_pseudo_parallel(data.numpy(), ntasks)
     reference_dendrogram = Dendrogram.compute(data.numpy())
 
+    # import matplotlib.pyplot as plt
+    # from dendro.utils import plot_astrodendro_tree_2D
+    # fig, axs = plt.subplots(2, ntasks)
+    # local_dendrograms = DistributedDendrogramV3.compute_local_dendrogram_pseudo_parallel(data.numpy(), ntasks)
+    # for i, d in enumerate(local_dendrograms):
+    #     plot_astrodendro_tree_2D(axs[0, i], d, d.trunk)
+    # plot_astrodendro_tree_2D(axs[1, 0], dendrogram, dendrogram.trunk)
+    # plot_astrodendro_tree_2D(axs[1, 1], reference_dendrogram, reference_dendrogram.trunk)
+    # plt.show()
+
     compare_dendrograms(reference_dendrogram, dendrogram)
 
 
@@ -56,4 +66,4 @@ def test_2D_v3(mpi_ranks, res, n_peaks):
 
 
 if __name__ == "__main__":
-    test_1D_v3_pseudo_parallel(2, 64)
+    test_2D_v3_pseudo_parallel(2, 32, 2)
