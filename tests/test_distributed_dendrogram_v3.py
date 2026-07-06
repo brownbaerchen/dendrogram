@@ -66,4 +66,7 @@ def test_2D_v3(mpi_ranks, res, n_peaks):
 
 
 if __name__ == "__main__":
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
     test_2D_v3_pseudo_parallel(2, 32, 2)
