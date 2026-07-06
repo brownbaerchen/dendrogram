@@ -24,7 +24,7 @@ _print(f"Using data of shape {data.shape}")
 wcs = wcs.WCS(header)
 
 kwargs = {
-    "min_value": 2,
+    "min_value": 0.1,
     "min_delta": 1.0,
     "wcs": wcs,
 }

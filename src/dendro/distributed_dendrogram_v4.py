@@ -135,6 +135,9 @@ class DistributedDendrogramV4(Dendrogram):
                     )
                     + offset
                 )
+                structure._values = torch.tensor(
+                    structure._values, device=DistributedDendrogramV4.device
+                )
 
         return local_dendrograms
 
