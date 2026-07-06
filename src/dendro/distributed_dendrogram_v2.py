@@ -65,11 +65,7 @@ class DistributedDendrogramV2(Dendrogram):
         return structures
 
     @staticmethod
-    def compute_pseudo_parallel(data, ntasks):
-        # data = data.numpy()
-        self = DistributedDendrogramV2()
-        self.data = data
-
+    def compute_local_dendrogram_pseudo_parallel(data, ntasks, **kwargs):
         elements_per_task = data.shape[0] // ntasks
         local_slices = [
             slice(i * elements_per_task, (i + 1) * elements_per_task)
@@ -85,6 +81,17 @@ class DistributedDendrogramV2(Dendrogram):
                 offset = np.zeros((1, data.ndim), int)
                 offset[:, 0] = local_slices[i].start
                 structure._indices = np.array(structure._indices) + offset
+
+        return local_dendrograms
+
+    @staticmethod
+    def compute_pseudo_parallel(data, ntasks):
+        self = DistributedDendrogramV2()
+        self.data = data
+
+        local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
+            data=self.data, ntasks=ntasks
+        )
 
         all_structures = []
         for d in local_dendrograms:
@@ -135,10 +142,24 @@ class DistributedDendrogramV2(Dendrogram):
         return [structures[i] for i in np.argsort(vmax)[::-1]]
 
     @staticmethod
-    def insert_structure(structures, insert):
+    def insert_structure_within(structures, insert):
         vmax = np.array([structure._vmax for structure in structures])
         insert_at = np.nonzero(vmax < insert._vmax)[0][0]
         return structures[:insert_at] + [insert] + structures[insert_at:]
+
+    @staticmethod
+    def insert_structure(structures, to_insert):
+        if len(structures) == 0:
+            structures = [to_insert]
+        elif to_insert._vmax > structures[0]._vmax:
+            structures = [to_insert] + structures
+        elif to_insert._vmax <= structures[-1]._vmax:
+            structures.append(to_insert)
+        else:
+            structures = DistributedDendrogramV2.insert_structure_within(
+                structures, to_insert
+            )
+        return structures
 
     def compute_from_structures(self, structures):
         merged_structures = []
@@ -155,20 +176,16 @@ class DistributedDendrogramV2(Dendrogram):
 
             # figure out if we need to break apart the structure
             vmax_other = structures[0]._vmax if len(structures) > 0 else to_merge._vmin
-
             if (
-                vmax_other > to_merge._vmin and vmax_other < to_merge._vmax
+                vmax_other > to_merge._vmin
+                and vmax_other < to_merge._vmax
+                and len(structures) > 0
                 # and to_merge.idx >= 0
             ):
                 top_part, bottom_part = self.split_structure(
                     to_merge, vmax_other, structures
                 )
-                if bottom_part._vmax > structures[0]._vmax:
-                    structures = [bottom_part] + structures
-                elif bottom_part._vmax <= structures[-1]._vmax:
-                    structures.append(bottom_part)
-                else:
-                    structures = self.insert_structure(structures, bottom_part)
+                structures = self.insert_structure(structures, bottom_part)
 
                 to_merge = top_part
 
