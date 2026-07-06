@@ -101,7 +101,6 @@ class DistributedDendrogramV3(Dendrogram):
             structures = [structure for structure in d.all_structures]
             offset = len(all_structures)
             for structure in structures:
-                d.index_map[d.index_map == structure.idx] += offset
                 structure.idx += offset
 
             all_structures += structures
