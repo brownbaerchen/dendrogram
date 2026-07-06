@@ -4,6 +4,7 @@ import astrodendro
 from dendro.distributed_dendrogram import DistributedDendrogram
 from dendro.distributed_dendrogram_v2 import DistributedDendrogramV2
 from dendro.distributed_dendrogram_v3 import DistributedDendrogramV3
+from dendro.distributed_dendrogram_v4 import DistributedDendrogramV4
 import heat as ht
 import numpy as np
 from time import perf_counter
@@ -65,6 +66,20 @@ _print(
     f"Heat V3 needed {t_heat_v3:.4f} s ({t_heat_v3 / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
 )
 d3.data = d3.data.numpy()
+
+ht.comm.Barrier()
+
+t0 = perf_counter()
+d4 = DistributedDendrogramV4.compute(distributed_data, **kwargs)
+t1 = perf_counter()
+t_heat_v4 = t1 - t0
+_print(
+    f"Heat V4 needed {d3.time_local_dendrogram:.4f}s to compute the local dendrogram and {d3.time_merge_dendrograms:.4f} for the global one with {d3._iterations} iterations"
+)
+_print(
+    f"Heat V4 needed {t_heat_v4:.4f} s ({t_heat_v4 / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
+)
+d4.data = d4.data.numpy()
 
 ht.comm.Barrier()
 

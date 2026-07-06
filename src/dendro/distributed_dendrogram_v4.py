@@ -74,6 +74,7 @@ class DistributedDendrogramV4(Dendrogram):
         offset[:, data.split] = offsets[comm.rank]
         for structure in local_dendrogram.all_structures:
             structure._indices = torch.tensor(structure._indices) + offset
+            structure._values = torch.tensor(structure._values)
 
         return local_dendrogram
 
