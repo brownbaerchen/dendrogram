@@ -60,3 +60,20 @@ def compare_dendrograms(ref_dendrogram, other_dendrogram):
             np.sort(np.array(structure._indices).flatten()),
             np.sort(np.array(corresponds_to[0]._indices).flatten()),
         ), "Indices dont match between merged and reference structure"
+
+
+def plot_astrodendro_leaves(ax, x, data, leaves, level=0):
+    markers = {0: ".", 1: "x", 2: ">", 3: "o", 4: "<"}
+
+    if level == 0:
+        ax.plot(x, data, color="black")
+
+    for leaf in leaves:
+        ax.scatter(
+            np.array(x)[leaf._indices],
+            np.array(data)[leaf._indices],
+            marker=markers.get(level, "."),
+        )
+        plot_astrodendro_leaves(
+            ax=ax, x=x, data=data, leaves=leaf._children, level=level + 1
+        )
