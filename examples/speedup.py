@@ -24,8 +24,8 @@ _print(f"Using data of shape {data.shape}")
 wcs = wcs.WCS(header)
 
 kwargs = {
-    # "min_value": 2,
-    # "min_delta": 1.0,
+    "min_value": 2,
+    "min_delta": 1.0,
     "wcs": wcs,
 }
 
@@ -70,11 +70,12 @@ d3.data = d3.data.numpy()
 ht.comm.Barrier()
 
 t0 = perf_counter()
+DistributedDendrogramV4.device = "cpu"
 d4 = DistributedDendrogramV4.compute(distributed_data, **kwargs)
 t1 = perf_counter()
 t_heat_v4 = t1 - t0
 _print(
-    f"Heat V4 needed {d3.time_local_dendrogram:.4f}s to compute the local dendrogram and {d3.time_merge_dendrograms:.4f} for the global one with {d3._iterations} iterations"
+    f"Heat V4 needed {d4.time_local_dendrogram:.4f}s to compute the local dendrogram and {d4.time_merge_dendrograms:.4f} for the global one with {d4._iterations} iterations"
 )
 _print(
     f"Heat V4 needed {t_heat_v4:.4f} s ({t_heat_v4 / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"

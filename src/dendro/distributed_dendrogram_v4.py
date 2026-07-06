@@ -24,9 +24,9 @@ class TorchStructure(astrodendro_structure):
             self._values = [values]
 
         if not isinstance(indices, torch.Tensor):
-            indices = torch.tensor(indices)
+            indices = torch.tensor(indices, device=DistributedDendrogramV4.device)
         if not isinstance(values, torch.Tensor):
-            values = torch.tensor(values)
+            values = torch.tensor(values, device=DistributedDendrogramV4.device)
 
         self._indices = indices
         self._values = values
@@ -39,6 +39,7 @@ class TorchStructure(astrodendro_structure):
 
 
 class DistributedDendrogramV4(Dendrogram):
+    device = "cpu"
     logger = logging.getLogger("Dendrogram")
 
     @staticmethod
@@ -54,9 +55,10 @@ class DistributedDendrogramV4(Dendrogram):
 
         local_dendrogram = self.compute_local_dendrogram(**kwargs)
 
-        structures = self.communicate_structures(local_dendrogram)
+        with torch.no_grad():
+            structures = self.communicate_structures(local_dendrogram)
 
-        self.compute_from_structures(structures)
+            self.compute_from_structures(structures)
         return self
 
     def compute_local_dendrogram(self, **kwargs):
@@ -70,11 +72,18 @@ class DistributedDendrogramV4(Dendrogram):
 
         # add offsets to local indices
         _, offsets = data.counts_displs()
-        offset = torch.zeros((1, data.ndim), dtype=int)
+        offset = torch.zeros(
+            (1, data.ndim), dtype=int, device=DistributedDendrogramV4.device
+        )
         offset[:, data.split] = offsets[comm.rank]
         for structure in local_dendrogram.all_structures:
-            structure._indices = torch.tensor(structure._indices) + offset
-            structure._values = torch.tensor(structure._values)
+            structure._indices = (
+                torch.tensor(structure._indices, device=DistributedDendrogramV4.device)
+                + offset
+            )
+            structure._values = torch.tensor(
+                structure._values, device=DistributedDendrogramV4.device
+            )
 
         return local_dendrogram
 
@@ -114,9 +123,18 @@ class DistributedDendrogramV4(Dendrogram):
 
         for i, dendrogram in enumerate(local_dendrograms):
             for structure in dendrogram.all_structures:
-                offset = torch.zeros((1, data.ndim), dtype=torch.int)
+                offset = torch.zeros(
+                    (1, data.ndim),
+                    dtype=torch.int,
+                    device=DistributedDendrogramV4.device,
+                )
                 offset[:, 0] = local_slices[i].start
-                structure._indices = torch.tensor(structure._indices) + offset
+                structure._indices = (
+                    torch.tensor(
+                        structure._indices, device=DistributedDendrogramV4.device
+                    )
+                    + offset
+                )
 
         return local_dendrograms
 
@@ -152,9 +170,13 @@ class DistributedDendrogramV4(Dendrogram):
     def split_structure(self, structure, split_at, structures):
 
         if not isinstance(structure._values, torch.Tensor):
-            structure._values = torch.tensor(structure._values)
+            structure._values = torch.tensor(
+                structure._values, device=DistributedDendrogramV4.device
+            )
         if not isinstance(structure._indices, torch.Tensor):
-            structure._indices = torch.tensor(structure._indices)
+            structure._indices = torch.tensor(
+                structure._indices, device=DistributedDendrogramV4.device
+            )
 
         top_mask = structure._values > split_at
 
@@ -182,7 +204,10 @@ class DistributedDendrogramV4(Dendrogram):
 
     @staticmethod
     def insert_structure_within(structures, insert):
-        vmax = torch.tensor([structure._vmax for structure in structures])
+        vmax = torch.tensor(
+            [structure._vmax for structure in structures],
+            device=DistributedDendrogramV4.device,
+        )
         insert_at = torch.nonzero(vmax < insert._vmax, as_tuple=False)[0][0]
         return structures[:insert_at] + [insert] + structures[insert_at:]
 
@@ -337,7 +362,7 @@ class DistributedDendrogramV4(Dendrogram):
     @staticmethod
     def get_adjacent_structure_indices(structure, index_map):
         adjacent = []
-        idx = torch.tensor(structure._indices)
+        idx = structure._indices
         for i in range(idx.shape[1]):
             one = np.zeros((1, idx.shape[1]), dtype=int)
             one[:, i] = 1
