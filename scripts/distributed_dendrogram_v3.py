@@ -133,23 +133,12 @@ while len(structures) > 0:
     axs[3].set_title("remaining after merge")
     fig.suptitle(f"Iteration {iteration}")
 
-    for structure in merged_structures:
-        axs[1].scatter(
-            x[structure._indices.flatten()], data[structure._indices.flatten()]
-        )
-
     for structure in structures:
         axs[0].scatter(
             x[structure._indices.flatten()], data[structure._indices.flatten()]
         )
 
     to_merge = structures.pop(0)
-    axs[1].scatter(
-        x[to_merge._indices.flatten()],
-        data[to_merge._indices.flatten()],
-        label="merge next",
-        marker="x",
-    )
 
     old_structures = []
     for structure in structures:
@@ -161,6 +150,24 @@ while len(structures) > 0:
     # find adjacent structures
     adjacent_structures = d.get_adjacent_structures(
         to_merge, merged_structures, d.index_map
+    )
+    for structure in merged_structures:
+        if structure in adjacent_structures:
+            axs[1].scatter(
+                x[structure._indices.flatten()],
+                data[structure._indices.flatten()],
+                marker="<",
+                label="adjacent structure",
+            )
+        else:
+            axs[1].scatter(
+                x[structure._indices.flatten()], data[structure._indices.flatten()]
+            )
+    axs[1].scatter(
+        x[to_merge._indices.flatten()],
+        data[to_merge._indices.flatten()],
+        label="merge next",
+        marker="x",
     )
 
     # merge the structure into the dendrogram
