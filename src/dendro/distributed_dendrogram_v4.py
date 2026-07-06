@@ -30,9 +30,9 @@ class TorchStructure(astrodendro_structure):
 
         self._indices = indices
         self._values = values
-        self.idx = idx
+        self.idx = int(idx)
 
-        self._vmin, self._vmax = torch.min(values), torch.max(values)
+        self._vmin, self._vmax = float(torch.min(values)), float(torch.max(values))
         if idx >= 0:
             self._smallest_index = torch.min(self._indices)
             self._reset_cache()
@@ -311,7 +311,9 @@ class DistributedDendrogramV4(Dendrogram):
 
         merged_structures = []
         self.index_map = -torch.ones(
-            tuple(np.add(self.data.shape, 1)), dtype=torch.int32
+            tuple(np.add(self.data.shape, 1)),
+            dtype=torch.int32,
+            device=DistributedDendrogramV4.device,
         )
 
         structures = self.sort_structures(structures)
@@ -364,11 +366,13 @@ class DistributedDendrogramV4(Dendrogram):
         adjacent = []
         idx = structure._indices
         for i in range(idx.shape[1]):
-            one = np.zeros((1, idx.shape[1]), dtype=int)
+            one = torch.zeros(
+                (1, idx.shape[1]), dtype=int, device=DistributedDendrogramV4.device
+            )
             one[:, i] = 1
-            adjacent += list(index_map[*(idx + one).T])
-            adjacent += list(index_map[*(idx - one).T])
-        return [me for me in np.unique(adjacent) if me >= 0]
+            adjacent += [index_map[*(idx + one).T]]
+            adjacent += [index_map[*(idx - one).T]]
+        return [me for me in torch.unique(torch.hstack(adjacent)) if me >= 0]
 
     @staticmethod
     def get_adjacent_structures(structure, merged_structures, index_map):

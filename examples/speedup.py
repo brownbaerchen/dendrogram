@@ -70,7 +70,8 @@ d3.data = d3.data.numpy()
 ht.comm.Barrier()
 
 t0 = perf_counter()
-DistributedDendrogramV4.device = "cpu"
+DistributedDendrogramV4.device = "mps"
+distributed_data = distributed_data.astype(ht.float32)
 d4 = DistributedDendrogramV4.compute(distributed_data, **kwargs)
 t1 = perf_counter()
 t_heat_v4 = t1 - t0
