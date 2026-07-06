@@ -138,7 +138,7 @@ class DistributedDendrogramV3(Dendrogram):
         structure._vmax = np.max(structure._values)
 
         self.logger.info(
-            f"Split structure at {split_at:.2f}. Remaining top part has {len(structure._values)} values between {structure._vmin:.2f} and {structure._vmax:.2f} and {len(structure._children)}, bottom part has {len(bottom_part._values)} values between {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}."
+            f"Split structure at {split_at:.2f}. Remaining top part has {len(structure._values)} values between {structure._vmin:.2f} and {structure._vmax:.2f} and {len(structure._children)} children, bottom part has {len(bottom_part._values)} values between {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}."
         )
         return structure, bottom_part
 
@@ -171,6 +171,10 @@ class DistributedDendrogramV3(Dendrogram):
         return structures
 
     def compute_from_structures(self, structures):
+        self.logger.info(
+            f"Start merging {len(structures)} structures from local dendrograms into one global one."
+        )
+
         merged_structures = []
         self.index_map = -np.ones(np.add(self.data.shape, 1), dtype=np.int32)
 
@@ -180,7 +184,6 @@ class DistributedDendrogramV3(Dendrogram):
         t0 = perf_counter()
         while len(structures) > 0:
             self._iterations += 1
-            # print(len(structures), len([me for me in structures if me.idx <0]), self.data.size)
             to_merge = structures.pop(0)
 
             # find adjacent structures
@@ -191,6 +194,10 @@ class DistributedDendrogramV3(Dendrogram):
                 [merged_structures[i].ancestor.idx for i in adjacent_structure_indices]
             )
             adjacent_structures = [merged_structures[i] for i in ancestor_indices]
+
+            self.logger.info(
+                f"Merging structure with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} with {len(adjacent_structures)} adjacent structures."
+            )
 
             # merge the structure into the dendrogram
             if len(adjacent_structures) == 0:  # create new leaf

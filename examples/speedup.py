@@ -23,8 +23,8 @@ _print(f"Using data of shape {data.shape}")
 wcs = wcs.WCS(header)
 
 kwargs = {
-    "min_value": 2,
-    "min_delta": 1.0,
+    # "min_value": 2,
+    # "min_delta": 1.0,
     "wcs": wcs,
 }
 
@@ -51,6 +51,8 @@ _print(
     f"Heat V2 needed {t_heat_v2:.4f} s ({t_heat_v2 / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
 )
 d2.data = d2.data.numpy()
+
+ht.comm.Barrier()
 
 t0 = perf_counter()
 d3 = DistributedDendrogramV3.compute(distributed_data, **kwargs)
