@@ -191,13 +191,9 @@ class DistributedDendrogramV3(Dendrogram):
             to_merge = structures.pop(0)
 
             # find adjacent structures
-            adjacent_structure_indices = self.get_adjacent_structure_indices(
-                to_merge, self.index_map
+            adjacent_structures = self.get_adjacent_structures(
+                to_merge, merged_structures, self.index_map
             )
-            ancestor_indices = np.unique(
-                [merged_structures[i].ancestor.idx for i in adjacent_structure_indices]
-            )
-            adjacent_structures = [merged_structures[i] for i in ancestor_indices]
 
             self.logger.info(
                 f"Merging structure with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} with {len(adjacent_structures)} adjacent structures."
@@ -315,3 +311,13 @@ class DistributedDendrogramV3(Dendrogram):
             adjacent += list(index_map[*(idx + one).T])
             adjacent += list(index_map[*(idx - one).T])
         return [me for me in np.unique(adjacent) if me >= 0]
+
+    @staticmethod
+    def get_adjacent_structures(structure, merged_structures, index_map):
+        adjacent_structure_indices = (
+            DistributedDendrogramV3.get_adjacent_structure_indices(structure, index_map)
+        )
+        ancestor_indices = np.unique(
+            [merged_structures[i].ancestor.idx for i in adjacent_structure_indices]
+        )
+        return [merged_structures[i] for i in ancestor_indices]
