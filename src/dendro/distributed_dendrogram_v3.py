@@ -134,8 +134,8 @@ class DistributedDendrogramV3(Dendrogram):
 
         structure._indices = structure._indices[top_mask]
         structure._values = structure._values[top_mask]
-        structure._vmin = structure._vmin
-        structure._vmax = structure._vmax
+        structure._vmin = np.min(structure._values)
+        structure._vmax = np.max(structure._values)
 
         self.logger.info(
             f"Split structure at {split_at:.2f}. Remaining top part has {len(structure._values)} values between {structure._vmin:.2f} and {structure._vmax:.2f} and {len(structure._children)}, bottom part has {len(bottom_part._values)} values between {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}."
@@ -250,7 +250,7 @@ class DistributedDendrogramV3(Dendrogram):
                     self.logger.info(
                         f"to_merge from {to_merge._vmin:.2f} to {to_merge._vmax:.2f}, child from {child._vmin:.2f} to {child._vmax:.2f}"
                     )
-                    if child._vmin < to_merge._vmax and child._vmin >= to_merge._vmin:
+                    if child._vmin < to_merge._vmax and child._vmin > to_merge._vmin:
                         to_merge, bottom_part = self.split_structure(
                             to_merge, child._vmin, structures
                         )
