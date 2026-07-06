@@ -170,7 +170,7 @@ class DistributedDendrogram(Dendrogram):
                     return True
 
             return False
-        elif isinstance(other, Structure):
+        elif isinstance(other, (Structure, astrodendro_structure)):
             if DistributedDendrogram.is_adjacent(chunk, other._indices):
                 return True
             else:
