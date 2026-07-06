@@ -9,8 +9,7 @@ from dendro.distributed_dendrogram import Structure
 
 
 class DistributedDendrogramV3(Dendrogram):
-    def __init__(self):
-        self.logger = logging.getLogger("Dendrogram")
+    logger = logging.getLogger("Dendrogram")
 
     @staticmethod
     def compute(data, **kwargs):
@@ -126,19 +125,22 @@ class DistributedDendrogramV3(Dendrogram):
 
         top_mask = structure._values > split_at
 
-        top_part = Structure(
-            indices=structure._indices[top_mask],
-            values=structure._values[top_mask],
-            idx=structure.idx,
-            dendrogram=self,
-        )
         bottom_part = Structure(
             indices=structure._indices[~top_mask],
             values=structure._values[~top_mask],
             idx=self.get_uid(),
             dendrogram=self,
         )
-        return top_part, bottom_part
+
+        structure._indices = structure._indices[top_mask]
+        structure._values = structure._values[top_mask]
+        structure._vmin = structure._vmin
+        structure._vmax = structure._vmax
+
+        self.logger.info(
+            f"Split structure at {split_at:.2f}. Remaining top part has {len(structure._values)} values between {structure._vmin:.2f} and {structure._vmax:.2f} and {len(structure._children)}, bottom part has {len(bottom_part._values)} values between {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}."
+        )
+        return structure, bottom_part
 
     @staticmethod
     def sort_structures(structures):
@@ -163,6 +165,9 @@ class DistributedDendrogramV3(Dendrogram):
             structures = DistributedDendrogramV3.insert_structure_within(
                 structures, to_insert
             )
+        DistributedDendrogramV3.logger.info(
+            f"Inserted structure with {len(to_insert._values)} values between {to_insert._vmin:.2f} and {to_insert._vmax:.2f} into list of {len(structures)} structures."
+        )
         return structures
 
     def compute_from_structures(self, structures):
@@ -210,11 +215,10 @@ class DistributedDendrogramV3(Dendrogram):
                     merge_into._vmin < to_merge._vmax
                     and merge_into._vmin > to_merge._vmin
                 ):
-                    top_part, bottom_part = self.split_structure(
+                    to_merge, bottom_part = self.split_structure(
                         to_merge, merge_into._vmin, structures
                     )
                     structures = self.insert_structure(structures, bottom_part)
-                    to_merge = top_part
                     self.logger.info(
                         f"    Merging only from {to_merge._vmin:.2f} to {to_merge._vmax:.2f}, left to merge from {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}"
                     )
@@ -222,14 +226,10 @@ class DistributedDendrogramV3(Dendrogram):
                     merge_into._vmin < to_merge._vmin
                     and merge_into._vmax > to_merge._vmin
                 ):
-                    top_part, bottom_part = self.split_structure(
+                    merge_into, bottom_part = self.split_structure(
                         merge_into, to_merge._vmin, structures
                     )
                     structures = self.insert_structure(structures, bottom_part)
-                    merge_into._indices = top_part._indices
-                    merge_into._values = top_part._values
-                    merge_into._vmin = np.min(merge_into._values)
-                    merge_into._vmax = np.max(merge_into._values)
                     self.logger.info(
                         f"    Breaking apart existing structure: Left is {merge_into._vmin:.2f} to {merge_into._vmax:.2f}, left to merge from {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}"
                     )
@@ -251,43 +251,34 @@ class DistributedDendrogramV3(Dendrogram):
                         f"to_merge from {to_merge._vmin:.2f} to {to_merge._vmax:.2f}, child from {child._vmin:.2f} to {child._vmax:.2f}"
                     )
                     if child._vmin < to_merge._vmax and child._vmin >= to_merge._vmin:
-                        top_part, bottom_part = self.split_structure(
+                        to_merge, bottom_part = self.split_structure(
                             to_merge, child._vmin, structures
                         )
                         structures = self.insert_structure(structures, bottom_part)
-                        to_merge = top_part
                         self.logger.info(
                             f"    Merging only from {to_merge._vmin:.2f} to {to_merge._vmax:.2f}, left to merge from {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}"
                         )
 
-                        top_part_child, bottom_part_child = self.split_structure(
+                        child, bottom_part_child = self.split_structure(
                             child, to_merge._vmax, structures
                         )
                         structures = self.insert_structure(
                             structures, bottom_part_child
                         )
-                        child._indices = top_part_child._indices
-                        child._values = top_part_child._values
-                        child._vmin = np.min(child._values)
-                        child._vmax = np.max(child._values)
                         self.logger.info(
                             f"    Breaking apart existing structure at {to_merge._vmax:.2f}: Left is {child._vmin:.2f} to {child._vmax:.2f}, left to merge from {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}"
                         )
 
                     elif child._vmin < to_merge._vmin and child._vmax > to_merge._vmin:
                         split_at = to_merge._vmax
-                        top_part, bottom_part = self.split_structure(
+                        child, bottom_part = self.split_structure(
                             child, split_at, structures
                         )
                         structures = self.insert_structure(structures, bottom_part)
-                        child._indices = top_part._indices
-                        child._values = top_part._values
-                        child._vmin = top_part._vmin
-                        child._vmax = top_part._vmax
                         self.logger.info(
                             f"    Breaking apart existing structure at {split_at:.2f}: Left is {child._vmin:.2f} to {child._vmax:.2f}, left to merge from {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}"
                         )
-                        # TODO: also break apart to merge?
+                        # TODO: also break apart to_merge?
 
                 branch = Structure(
                     indices=to_merge._indices,

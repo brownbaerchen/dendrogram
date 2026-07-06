@@ -3,6 +3,7 @@ from astropy import wcs
 import astrodendro
 from dendro.distributed_dendrogram import DistributedDendrogram
 from dendro.distributed_dendrogram_v2 import DistributedDendrogramV2
+from dendro.distributed_dendrogram_v3 import DistributedDendrogramV3
 import heat as ht
 import numpy as np
 from time import perf_counter
@@ -22,8 +23,8 @@ _print(f"Using data of shape {data.shape}")
 wcs = wcs.WCS(header)
 
 kwargs = {
-    # "min_value": 2,
-    # "min_delta": 1.0,
+    "min_value": 2,
+    "min_delta": 1.0,
     "wcs": wcs,
 }
 
@@ -50,12 +51,23 @@ _print(
     f"Heat V2 needed {t_heat_v2:.4f} s ({t_heat_v2 / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
 )
 d2.data = d2.data.numpy()
-exit()
+
+t0 = perf_counter()
+d3 = DistributedDendrogramV3.compute(distributed_data, **kwargs)
+t1 = perf_counter()
+t_heat_v3 = t1 - t0
+_print(
+    f"Heat V3 needed {d3.time_local_dendrogram:.4f}s to compute the local dendrogram and {d3.time_merge_dendrograms:.4f} for the global one with {d3._iterations} iterations"
+)
+_print(
+    f"Heat V3 needed {t_heat_v3:.4f} s ({t_heat_v3 / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
+)
+d3.data = d3.data.numpy()
 
 ht.comm.Barrier()
 
 t0 = perf_counter()
-d3 = DistributedDendrogram.compute(distributed_data, **kwargs)
+d4 = DistributedDendrogram.compute(distributed_data, **kwargs)
 t1 = perf_counter()
 t_heat = t1 - t0
 _print(
@@ -63,7 +75,7 @@ _print(
 )
 
 
-# if ht.comm.rank == 0:
-#     d2.wcs = wcs
-#     v = d2.viewer()
-#     v.show()
+if ht.comm.rank == 0:
+    d3.wcs = wcs
+    v = d3.viewer()
+    v.show()
