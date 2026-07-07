@@ -11,7 +11,7 @@ import torch
 from time import perf_counter
 import json
 
-filename = "speedup_astrodendro_example_min01.json"
+filename = "speedup_astrodendro_example_min2.json"
 
 try:
     with open(filename, "r") as file:
@@ -34,7 +34,7 @@ _print(f"Using data of shape {data.shape}")
 wcs = wcs.WCS(header)
 
 kwargs = {
-    "min_value": 0.1,
+    "min_value": 2.0,
     "min_delta": 1.0,
     "wcs": wcs,
 }
@@ -137,7 +137,7 @@ if ht.comm.rank == 0:
     ax.set_xlabel("n tasks")
     ax.set_ylabel("time / s")
     fig.tight_layout()
-    plt.savefig("examples/speedup_plot.png")
+    plt.savefig("examples/speedup_plot_min2.png")
     plt.show()
 
     d3.wcs = wcs
