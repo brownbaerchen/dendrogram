@@ -7,6 +7,7 @@ from dendro.distributed_dendrogram_v3 import DistributedDendrogramV3
 from dendro.distributed_dendrogram_v4 import DistributedDendrogramV4
 import heat as ht
 import numpy as np
+import torch
 from time import perf_counter
 
 
@@ -56,8 +57,10 @@ d2.data = d2.data.numpy()
 ht.comm.Barrier()
 
 t0 = perf_counter()
+ht.comm.Barrier()
 d3 = DistributedDendrogramV3.compute(distributed_data, **kwargs)
 t1 = perf_counter()
+ht.comm.Barrier()
 t_heat_v3 = t1 - t0
 _print(
     f"Heat V3 needed {d3.time_local_dendrogram:.4f}s to compute the local dendrogram and {d3.time_merge_dendrograms:.4f} for the global one with {d3._iterations} iterations"
@@ -69,28 +72,33 @@ d3.data = d3.data.numpy()
 
 ht.comm.Barrier()
 
-t0 = perf_counter()
-DistributedDendrogramV4.device = "mps"
-distributed_data = distributed_data.astype(ht.float32)
-d4 = DistributedDendrogramV4.compute(distributed_data, **kwargs)
-t1 = perf_counter()
-t_heat_v4 = t1 - t0
-_print(
-    f"Heat V4 needed {d4.time_local_dendrogram:.4f}s to compute the local dendrogram and {d4.time_merge_dendrograms:.4f} for the global one with {d4._iterations} iterations"
-)
-_print(
-    f"Heat V4 needed {t_heat_v4:.4f} s ({t_heat_v4 / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
-)
-d4.data = d4.data.numpy()
+if torch.cuda.is_available():
+    t0 = perf_counter()
+    ht.comm.Barrier()
+    DistributedDendrogramV4.device = "cuda"
+    distributed_data = distributed_data.astype(ht.float32)
+    d4 = DistributedDendrogramV4.compute(distributed_data, **kwargs)
+    ht.comm.Barrier()
+    t1 = perf_counter()
+    t_heat_v4 = t1 - t0
+    _print(
+        f"Heat V4 needed {d4.time_local_dendrogram:.4f}s to compute the local dendrogram and {d4.time_merge_dendrograms:.4f} for the global one with {d4._iterations} iterations"
+    )
+    _print(
+        f"Heat V4 needed {t_heat_v4:.4f} s ({t_heat_v4 / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
+    )
+    d4.data = d4.data.numpy()
 
 ht.comm.Barrier()
 
 t0 = perf_counter()
+ht.comm.Barrier()
 d4 = DistributedDendrogram.compute(distributed_data, **kwargs)
+ht.comm.Barrier()
 t1 = perf_counter()
 t_heat = t1 - t0
 _print(
-    f"Heat needed {t_heat:.4f} s ({t_heat / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
+    f"Heat V1 needed {t_heat:.4f} s ({t_heat / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
 )
 
 
