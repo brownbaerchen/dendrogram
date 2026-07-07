@@ -9,6 +9,15 @@ import heat as ht
 import numpy as np
 import torch
 from time import perf_counter
+import json
+
+filename = "speedup_astrodendro_example_min01.json"
+
+try:
+    with open(filename, "r") as file:
+        timing_data = json.load(file)
+except FileNotFoundError:
+    timing_data = {"astrodendro": None, "v1": {}, "v2": {}, "v3": {}, "v4": {}}
 
 
 def _print(*args):
@@ -34,6 +43,7 @@ t0 = perf_counter()
 d = astrodendro.Dendrogram.compute(data, **kwargs)
 t1 = perf_counter()
 t_astrodendro = t1 - t0
+timing_data["astrodendro"] = t_astrodendro
 _print(f"Astrodendro needed {t_astrodendro:.4f} s")
 
 ht.comm.Barrier()
@@ -43,9 +53,23 @@ distributed_data = ht.array(data, split=0)
 ht.comm.Barrier()
 
 t0 = perf_counter()
+ht.comm.Barrier()
+d4 = DistributedDendrogram.compute(distributed_data, **kwargs)
+ht.comm.Barrier()
+t1 = perf_counter()
+t_heat = t1 - t0
+timing_data["v1"][str(ht.comm.size)] = t_heat
+_print(
+    f"Heat V1 needed {t_heat:.4f} s ({t_heat / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
+)
+
+ht.comm.Barrier()
+
+t0 = perf_counter()
 d2 = DistributedDendrogramV2.compute(distributed_data, **kwargs)
 t1 = perf_counter()
 t_heat_v2 = t1 - t0
+timing_data["v2"][str(ht.comm.size)] = t_heat_v2
 _print(
     f"Heat V2 needed {d2.time_local_dendrogram:.4f}s to compute the local dendrogram and {d2.time_merge_dendrograms:.4f} for the global one with {d2._iterations} iterations"
 )
@@ -62,6 +86,7 @@ d3 = DistributedDendrogramV3.compute(distributed_data, **kwargs)
 t1 = perf_counter()
 ht.comm.Barrier()
 t_heat_v3 = t1 - t0
+timing_data["v3"][str(ht.comm.size)] = t_heat_v3
 _print(
     f"Heat V3 needed {d3.time_local_dendrogram:.4f}s to compute the local dendrogram and {d3.time_merge_dendrograms:.4f} for the global one with {d3._iterations} iterations"
 )
@@ -81,6 +106,7 @@ if torch.cuda.is_available():
     ht.comm.Barrier()
     t1 = perf_counter()
     t_heat_v4 = t1 - t0
+    timing_data["v4"][str(ht.comm.size)] = t_heat_v4
     _print(
         f"Heat V4 needed {d4.time_local_dendrogram:.4f}s to compute the local dendrogram and {d4.time_merge_dendrograms:.4f} for the global one with {d4._iterations} iterations"
     )
@@ -89,20 +115,31 @@ if torch.cuda.is_available():
     )
     d4.data = d4.data.numpy()
 
-ht.comm.Barrier()
-
-t0 = perf_counter()
-ht.comm.Barrier()
-d4 = DistributedDendrogram.compute(distributed_data, **kwargs)
-ht.comm.Barrier()
-t1 = perf_counter()
-t_heat = t1 - t0
-_print(
-    f"Heat V1 needed {t_heat:.4f} s ({t_heat / t_astrodendro:.4f} x) with {distributed_data.comm.size} tasks"
-)
-
 
 if ht.comm.rank == 0:
+    with open(filename, "w") as file:
+        json.dump(timing_data, file, indent=4)
+
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+    for key, value in timing_data.items():
+        if key == "astrodendro":
+            ax.axhline(timing_data[key], color="black", label="Astrodendro")
+        else:
+            ax.loglog(
+                [int(me) for me in value.keys()],
+                [me for me in value.values()],
+                marker="x",
+                label=key,
+            )
+    ax.legend(frameon=False)
+    ax.set_xlabel("n tasks")
+    ax.set_ylabel("time / s")
+    fig.tight_layout()
+    plt.savefig("examples/speedup_plot.png")
+    plt.show()
+
     d3.wcs = wcs
     v = d3.viewer()
     v.show()
