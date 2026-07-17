@@ -101,11 +101,8 @@ def get_dendrogram_args(args):
 def compute_dendrogram(args, dendrogram_args):
     if args["version"] == "astrodendro":
         from astrodendro import Dendrogram
-
-        if args["logging"]:
-            dendrogram_args["verbose"] = True
     else:
-        dendrogram_args["data"] = ht.array(dendrogram_args["data"])
+        dendrogram_args["data"] = ht.array(dendrogram_args["data"], split=0)
         if args["version"] == "v1":
             from dendro.distributed_dendrogram import (
                 DistributedDendrogram as Dendrogram,
@@ -116,6 +113,9 @@ def compute_dendrogram(args, dendrogram_args):
             )
         else:
             raise NotImplementedError
+
+    if args["logging"] and ht.comm.rank == 0:
+        dendrogram_args["verbose"] = True
 
     return Dendrogram.compute(**dendrogram_args)
 
