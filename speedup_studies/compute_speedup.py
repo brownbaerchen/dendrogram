@@ -165,7 +165,33 @@ def run_experiment():
     write_data(args, timing_data)
 
 
+def plot():
+    import matplotlib.pyplot as plt
+
+    args = parse_args()
+    timing_data = get_data(args)
+
+    fig, ax = plt.subplots()
+
+    if "astrodendro" in timing_data.keys():
+        ax.axhline(
+            timing_data["astrodendro"]["1"], color="black", label="Astrodendro baseline"
+        )
+
+    for version, timings in timing_data.items():
+        if version == "astrodendro":
+            continue
+        procs = [int(me) for me in timings.keys()]
+        times = [me for me in timings.values()]
+        idx = np.argsort(procs)
+        ax.loglog(procs[idx], times[idx], label=version)
+    plt.show()
+
+
 if __name__ == "__main__":
     args = parse_args()
     if args["run"]:
         run_experiment()
+
+    if args["plot"]:
+        plot()
