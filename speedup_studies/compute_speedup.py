@@ -33,6 +33,9 @@ def parse_args():
         "--run", type=cast_to_bool, help="run experiment", default=False
     )
     parser.add_argument(
+        "--visualize", type=cast_to_bool, help="vizualize dendrograms", default=False
+    )
+    parser.add_argument(
         "--logging", type=cast_to_bool, help="print dendrogram logs", default=False
     )
 
@@ -151,7 +154,7 @@ def run_experiment():
 
     _print(f"Starting {args['version']} {args['example']} on {ht.comm.size} tasks")
     t0 = perf_counter()
-    _ = compute_dendrogram(args, dendro_args)
+    d = compute_dendrogram(args, dendro_args)
     t1 = perf_counter()
     elapsed_time = t1 - t0
     _print(
@@ -164,6 +167,11 @@ def run_experiment():
     timing_data[args["version"]][str(ht.comm.size)] = elapsed_time
     write_data(args, timing_data)
 
+    if ht.comm.rank == 0:
+        dendrogram_path = f"{get_filename(args)[:-5]}-dendrogram-{args['version']}-{ht.comm.size}tasks.fits"
+        d.save_to(dendrogram_path, format="fits")
+        print(f"Saved dendrogram to {dendrogram_path!r}.")
+
 
 def plot():
     import matplotlib.pyplot as plt
@@ -173,19 +181,55 @@ def plot():
 
     fig, ax = plt.subplots()
 
-    if "astrodendro" in timing_data.keys():
-        ax.axhline(
-            timing_data["astrodendro"]["1"], color="black", label="Astrodendro baseline"
-        )
-
     for version, timings in timing_data.items():
         if version == "astrodendro":
             continue
-        procs = [int(me) for me in timings.keys()]
-        times = [me for me in timings.values()]
+        procs = np.array([int(me) for me in timings.keys()])
+        times = np.array([me for me in timings.values()])
         idx = np.argsort(procs)
         ax.loglog(procs[idx], times[idx], label=version)
+
+    # set x ticks
+    lims = ax.get_xlim()
+    start = np.ceil(np.log2(lims[0]))
+    stop = np.floor(np.log2(lims[1]))
+    values = np.array(2 ** (np.arange(stop - start + 1) + start), int)
+    ax.set_xticks(
+        [],
+        minor=True,
+    )
+    ax.set_xticks(values)
+    ax.set_xticklabels(values)
+
+    if "astrodendro" in timing_data.keys():
+        t_astrodendro = timing_data["astrodendro"]["1"]
+        ax.axhline(t_astrodendro, color="black", label="Astrodendro baseline")
+        ax.plot(
+            [1, 2**stop],
+            [t_astrodendro, t_astrodendro / (2**stop)],
+            color="grey",
+            ls="--",
+            label="ideal scaling",
+        )
+
+    ax.set_xlabel(r"$N_\text{procs}$")
+    ax.set_ylabel(r"$t / s$")
+    ax.legend(frameon=False)
+
+    fig.savefig(f"{get_filename(args)[:-5]}.png", bbox_inches="tight", dpi=300)
     plt.show()
+
+
+def visualize_dendrogram():
+    raise NotImplementedError()
+    # from astrodendro import Dendrogram
+
+    # d_v3 = Dendrogram.load_from(
+    #     "/Users/thomasbaumann/Documents/repositories/dendrogram/speedup_studies//timing_data/OGHRES-dendrogram-v3-4tasks.fits"
+    # )
+    # d_astrodendro = Dendrogram.load_from(
+    #     "/Users/thomasbaumann/Documents/repositories/dendrogram/speedup_studies//timing_data/OGHRES-dendrogram-astrodendro-1tasks.fits"
+    # )
 
 
 if __name__ == "__main__":
@@ -195,3 +239,6 @@ if __name__ == "__main__":
 
     if args["plot"]:
         plot()
+
+    if args["visualize"]:
+        visualize_dendrogram()

@@ -10,24 +10,40 @@ from dendro.distributed_dendrogram import Structure
 
 class DistributedDendrogramV3(Dendrogram):
     logger = logging.getLogger("Dendrogram")
+    wcs = None
 
     @staticmethod
-    def compute(data, **kwargs):
+    def compute(data, min_npix=0, min_value=-np.inf, min_delta=0, **kwargs):
         assert isinstance(data, ht.DNDarray)
 
         self = DistributedDendrogramV3()
         self.data = data
         self.comm = data.comm
 
+        self.params = dict(min_npix=min_npix, min_value=min_value, min_delta=min_delta)
+
         # if not data.is_distributed():
         #     return Dendrogram.compute(data.numpy(), **kwargs)
 
-        local_dendrogram = self.compute_local_dendrogram(**kwargs)
+        local_dendrogram = self.compute_local_dendrogram(
+            min_npix=min_npix, min_value=min_value, min_delta=min_delta, **kwargs
+        )
 
         structures = self.communicate_structures(local_dendrogram)
 
         self.compute_from_structures(structures)
+
+        self.make_output_astrodendro_compatible()
+
         return self
+
+    def make_output_astrodendro_compatible(self):
+
+        self.data = self.data.numpy()
+
+        # Remove border from index map
+        s = tuple(slice(0, s, 1) for s in self.data.shape)
+        self.index_map = self.index_map[s]
 
     def compute_local_dendrogram(self, **kwargs):
         data = self.data
