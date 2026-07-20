@@ -65,6 +65,19 @@ def test_2D_v3(mpi_ranks, res, n_peaks):
     compare_dendrograms(reference_dendrogram, dendrogram)
 
 
+@pytest.mark.mpi(ranks=[1, 2])
+def test_2D_save_and_load(mpi_ranks, tmp_path):
+    from dendro.utils import get_2d_data
+    from astrodendro import Dendrogram
+
+    _, _, data = get_2d_data(32, 4)
+
+    dendrogram = DistributedDendrogramV3.compute(data)
+    dendrogram.save_to(f"{tmp_path}/dendrogram.fits")
+    compare_to = Dendrogram.load_from(f"{tmp_path}/dendrogram.fits")
+    compare_dendrograms(compare_to, dendrogram)
+
+
 if __name__ == "__main__":
     import logging
 

@@ -13,7 +13,7 @@ class DistributedDendrogramV3(Dendrogram):
     wcs = None
 
     @staticmethod
-    def compute(data, min_npix=0, min_value=-np.inf, min_delta=0, **kwargs):
+    def compute(data, min_npix=0, min_value="min", min_delta=0, **kwargs):
         assert isinstance(data, ht.DNDarray)
 
         self = DistributedDendrogramV3()
