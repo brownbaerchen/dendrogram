@@ -203,14 +203,12 @@ class DistributedDendrogramV3(Dendrogram):
             )
         elif len(adjacent_structures) == 1:  # merge into existing structure
             merge_into = adjacent_structures[0]
-            if merge_into._vmin < to_merge._vmax and merge_into._vmin > to_merge._vmin:
+            if to_merge._vmin < merge_into._vmin < to_merge._vmax:
                 to_merge, bottom_part = self.split_structure(
                     to_merge, merge_into._vmin, structures
                 )
                 structures = self.insert_structure(structures, bottom_part)
-            elif (
-                merge_into._vmin < to_merge._vmin and merge_into._vmax > to_merge._vmin
-            ):
+            if merge_into._vmin < to_merge._vmin < merge_into._vmax:
                 merge_into, bottom_part = self.split_structure(
                     merge_into, to_merge._vmin, structures
                 )
@@ -279,7 +277,7 @@ class DistributedDendrogramV3(Dendrogram):
         while len(structures) > 0:
             self._iterations += 1
             self.logger.info(
-                f"Starting iteration {self._iterations} of merging dendrograms. Merged dendrogram contains {len(merged_structures)} structures and have {len(structures)} left to merge."
+                f"--- Iteration {self._iterations}. Merged {len(merged_structures)} / {len(structures)}."
             )
 
             to_merge = structures.pop(0)
