@@ -268,7 +268,7 @@ class DistributedDendrogramV3(Dendrogram):
         while len(structures) > 0:
             self._iterations += 1
             self.logger.info(
-                f"--- Iteration {self._iterations}. Merged {len(merged_structures)} / {len(structures)}."
+                f"--- Iteration {self._iterations}. Merged {len(merged_structures)} / {len(structures) + len(merged_structures)}."
             )
 
             to_merge = structures.pop(0)
