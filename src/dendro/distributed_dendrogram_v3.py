@@ -110,6 +110,16 @@ class DistributedDendrogramV3(Dendrogram):
             for s in local_slices
         ]
 
+        empty_dendrograms = [
+            i for i, d in enumerate(local_dendrograms) if len(d.trunk) == 0
+        ]
+        if 0 < len(empty_dendrograms) < len(local_dendrograms):
+            for i in empty_dendrograms:
+                local_dendrograms[i] = Dendrogram.compute(
+                    np.array(data[local_slices[i]]),
+                    min_delta=np.ptp(data[local_slices[i]]),
+                )
+
         for i, dendrogram in enumerate(local_dendrograms):
             for structure in dendrogram.all_structures:
                 offset = np.zeros((1, data.ndim), int)
@@ -125,7 +135,11 @@ class DistributedDendrogramV3(Dendrogram):
         self.params = dict(min_npix=min_npix, min_value=min_value, min_delta=min_delta)
 
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
-            data=self.data, ntasks=ntasks, min_delta=0, min_npix=0, min_value="min"
+            data=self.data,
+            ntasks=ntasks,
+            min_delta=min_delta,
+            min_npix=min_npix,
+            min_value=min_value,
         )
 
         all_structures = []
@@ -318,26 +332,12 @@ class DistributedDendrogramV3(Dendrogram):
                     f"Merging insignificant structure(s) {[m.idx for m in merge]} into structure {belongs_to.idx}"
                 )
             for m in merge:
-                print("haaaaaaaaaaaaaa", belongs_to.idx, m.idx, len(merged_structures))
-                print([me.idx for me in merged_structures], np.unique(self.index_map))
                 for s in merged_structures[m.idx + 1 :]:
                     s.idx -= 1
-                    print(s.idx)
                     self.index_map[*s._indices.T] = s.idx
-                    # if 2 in self.index_map:
-                    #     breakpoint()
-                print([me.idx for me in merged_structures], np.unique(self.index_map))
                 merged_structures.pop(m.idx)
-                print([me.idx for me in merged_structures], np.unique(self.index_map))
-                # merged_structures = [me for me in merged_structures if me is not m]
                 self.merge_structures(to_merge=m, merge_into=belongs_to)
 
-        # for i, s in enumerate(merged_structures):
-        #     s.idx = i
-        #     self.index_map[*s._indices.T] = s.idx
-        print(np.max(self.index_map), len(merged_structures))
-        # if np.max(self.index_map) >= len(merged_structures):
-        #     breakpoint()
         return merged_structures, structures
 
     def merge_structures(self, to_merge, merge_into):

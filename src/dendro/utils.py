@@ -56,10 +56,13 @@ def compare_dendrograms(ref_dendrogram, other_dendrogram):
         assert len(corresponds_to) == 1, (
             f"Structure in reference dendrogram corresponds to {len(corresponds_to)} structures in the merged one"
         )
+        assert len(structure._indices) == len(corresponds_to[0]._indices), (
+            "Structures have different lengths"
+        )
         assert np.allclose(
             np.sort(np.array(structure._indices).flatten()),
             np.sort(np.array(corresponds_to[0]._indices).flatten()),
-        ), "Indices dont match between merged and reference structure"
+        ), r"Indices don\'t match between merged and reference structure"
 
 
 def plot_astrodendro_leaves(ax, x, data, leaves, level=0):

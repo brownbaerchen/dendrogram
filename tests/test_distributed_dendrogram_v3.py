@@ -9,8 +9,8 @@ from dendro.utils import compare_dendrograms
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("res", [32, 64])
 @pytest.mark.parametrize("min_npix", [0])
-@pytest.mark.parametrize("min_value", ["min"])
 @pytest.mark.parametrize("min_delta", [0, 0.1, 0.5])
+@pytest.mark.parametrize("min_value", ["min"])
 def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value):
     from dendro.utils import get_1d_data
 
@@ -28,21 +28,21 @@ def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value):
     )
     reference_dendrogram = Dendrogram.compute(**kwargs)
 
-    import matplotlib.pyplot as plt
-    from dendro.utils import plot_astrodendro_leaves
+    # import matplotlib.pyplot as plt
+    # from dendro.utils import plot_astrodendro_leaves
 
-    fig, axs = plt.subplots(2, ntasks)
-    local_dendrograms = (
-        DistributedDendrogramV3.compute_local_dendrogram_pseudo_parallel(
-            ntasks=ntasks, **kwargs
-        )
-    )
-    for i, d in enumerate(local_dendrograms):
-        plot_astrodendro_leaves(axs[0, i], x.numpy(), data.numpy(), d.trunk)
-    plot_astrodendro_leaves(axs[1, 0], x.numpy(), data.numpy(), dendrogram.trunk)
-    plot_astrodendro_leaves(
-        axs[1, 1], x.numpy(), data.numpy(), reference_dendrogram.trunk
-    )
+    # fig, axs = plt.subplots(2, max([ntasks, 2]))
+    # local_dendrograms = (
+    #     DistributedDendrogramV3.compute_local_dendrogram_pseudo_parallel(
+    #         ntasks=ntasks, **kwargs
+    #     )
+    # )
+    # for i, d in enumerate(local_dendrograms):
+    #     plot_astrodendro_leaves(axs[0, i], x.numpy(), data.numpy(), d.trunk)
+    # plot_astrodendro_leaves(axs[1, 0], x.numpy(), data.numpy(), dendrogram.trunk)
+    # plot_astrodendro_leaves(
+    #     axs[1, 1], x.numpy(), data.numpy(), reference_dendrogram.trunk
+    # )
     # plt.show()
 
     compare_dendrograms(reference_dendrogram, dendrogram)
@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
 
-    test_1D_v3_pseudo_parallel(2, 64, 0, 0.5, "min")
+    test_1D_v3_pseudo_parallel(4, 32, 0, 0.1, "min")
     # test_example_pseudo_parallel()
     # test_1D_v3_pseudo_parallel(2, 128)
     # test_2D_v3_pseudo_parallel(2, 32, 2)
