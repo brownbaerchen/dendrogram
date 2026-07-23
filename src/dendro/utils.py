@@ -54,7 +54,7 @@ def compare_dendrograms(ref_dendrogram, other_dendrogram):
             )
         ]
         assert len(corresponds_to) == 1, (
-            f"Structure in reference dendrogram corresponds to {len(corresponds_to)} structures in the merged one"
+            f"Structure {structure.idx} in reference dendrogram corresponds to {len(corresponds_to)} structures {[me.idx for me in corresponds_to]} in the merged one"
         )
         assert len(structure._indices) == len(corresponds_to[0]._indices), (
             "Structures have different lengths"
