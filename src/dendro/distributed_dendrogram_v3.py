@@ -185,6 +185,23 @@ class DistributedDendrogramV3(Dendrogram):
         )
         return structures
 
+    def split_adjacent_structures(self, to_merge, adjacent_structures, structures):
+        for i, adjacent in enumerate(adjacent_structures):
+            if to_merge._vmin < adjacent._vmin < to_merge._vmax:
+                to_merge, bottom_part = self.split_structure(
+                    to_merge, adjacent._vmin, structures
+                )
+                structures = self.insert_structure(structures, bottom_part)
+
+            # if adjacent._vmin < to_merge._vmin < adjacent._vmax:
+            #     adjacent_structures[i], bottom_part = self.split_structure(
+            #         to_merge, adjacent._vmin, structures
+            #     )
+            #     structures = self.insert_structure(structures, bottom_part)
+            #     self.index_map[*bottom_part._indices.T] = -1
+
+        return to_merge, adjacent_structures, structures
+
     def merge_individual_structure(
         self, to_merge, merged_structures, adjacent_structures, structures
     ):
@@ -203,11 +220,6 @@ class DistributedDendrogramV3(Dendrogram):
             )
         elif len(adjacent_structures) == 1:  # merge into existing structure
             merge_into = adjacent_structures[0]
-            if to_merge._vmin < merge_into._vmin < to_merge._vmax:
-                to_merge, bottom_part = self.split_structure(
-                    to_merge, merge_into._vmin, structures
-                )
-                structures = self.insert_structure(structures, bottom_part)
             if merge_into._vmin < to_merge._vmin < merge_into._vmax:
                 merge_into, bottom_part = self.split_structure(
                     merge_into, to_merge._vmin, structures
@@ -289,6 +301,16 @@ class DistributedDendrogramV3(Dendrogram):
 
             self.logger.info(
                 f"Merging structure with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} with {len(adjacent_structures)} adjacent structures: {[me.idx for me in adjacent_structures]}."
+            )
+
+            # split structures if needed
+            to_merge, adjacent_structures, structures = self.split_adjacent_structures(
+                to_merge, adjacent_structures, structures
+            )
+
+            # recompute adjacent structures after splitting
+            adjacent_structures = self.get_adjacent_structures(
+                to_merge, merged_structures, self.index_map
             )
 
             # merge the structure into the dendrogram
