@@ -215,6 +215,7 @@ class DistributedDendrogramV3(Dendrogram):
                     merge_into, to_merge._vmin, structures
                 )
                 structures = self.insert_structure(structures, bottom_part)
+                self.index_map[*bottom_part._indices.T] = -1
 
             merge_into._indices = np.vstack([merge_into._indices, to_merge._indices])
             merge_into._values = np.append(merge_into._values, to_merge._values)
@@ -238,6 +239,7 @@ class DistributedDendrogramV3(Dendrogram):
                         child, to_merge._vmax, structures
                     )
                     structures = self.insert_structure(structures, bottom_part_child)
+                    self.index_map[*bottom_part_child._indices.T] = -1
 
                 elif child._vmin < to_merge._vmin and child._vmax > to_merge._vmin:
                     split_at = to_merge._vmax
@@ -245,6 +247,7 @@ class DistributedDendrogramV3(Dendrogram):
                         child, split_at, structures
                     )
                     structures = self.insert_structure(structures, bottom_part)
+                    self.index_map[*bottom_part._indices.T] = -1
                     # TODO: also break apart to_merge?
 
             branch = Structure(
