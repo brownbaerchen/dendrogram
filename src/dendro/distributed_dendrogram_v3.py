@@ -232,12 +232,7 @@ class DistributedDendrogramV3(Dendrogram):
 
         else:  # create new branch
             for child in adjacent_structures:
-                if child._vmin < to_merge._vmax and child._vmin > to_merge._vmin:
-                    to_merge, bottom_part = self.split_structure(
-                        to_merge, child._vmin, structures
-                    )
-                    structures = self.insert_structure(structures, bottom_part)
-
+                if to_merge._vmin < child._vmin < to_merge._vmax:
                     child, bottom_part_child = self.split_structure(
                         child, to_merge._vmax, structures
                     )
