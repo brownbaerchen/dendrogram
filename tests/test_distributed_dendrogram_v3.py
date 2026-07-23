@@ -1,4 +1,5 @@
 import pytest
+from tempfile import TemporaryDirectory
 
 from astrodendro.dendrogram import Dendrogram
 
@@ -66,16 +67,18 @@ def test_2D_v3(mpi_ranks, res, n_peaks):
 
 
 @pytest.mark.mpi(ranks=[1, 2])
-def test_2D_save_and_load(mpi_ranks, tmp_path):
+def test_2D_save_and_load(mpi_ranks):
     from dendro.utils import get_2d_data
     from astrodendro import Dendrogram
 
     _, _, data = get_2d_data(32, 4)
 
     dendrogram = DistributedDendrogramV3.compute(data)
-    dendrogram.save_to(f"{tmp_path}/dendrogram.fits")
-    compare_to = Dendrogram.load_from(f"{tmp_path}/dendrogram.fits")
-    compare_dendrograms(compare_to, dendrogram)
+    with TemporaryDirectory() as tmpdir:
+        output_path = f"{tmpdir}/dendrogram.fits"
+        dendrogram.save_to(output_path)
+        compare_to = Dendrogram.load_from(output_path)
+        compare_dendrograms(compare_to, dendrogram)
 
 
 if __name__ == "__main__":
