@@ -90,6 +90,7 @@ class DistributedDendrogramV3(Dendrogram):
             slice(i * elements_per_task, (i + 1) * elements_per_task)
             for i in range(ntasks)
         ]
+        local_slices[-1] = slice(local_slices[-1].start, None)
 
         local_dendrograms = [
             Dendrogram.compute(np.array(data[s])) for s in local_slices
@@ -185,6 +186,30 @@ class DistributedDendrogramV3(Dendrogram):
         )
         return structures
 
+    def split_adjacent_structures(self, to_merge, adjacent_structures, structures):
+        for i, adjacent in enumerate(adjacent_structures):
+            if to_merge._vmin < adjacent._vmin < to_merge._vmax:
+                to_merge, bottom_part = self.split_structure(
+                    to_merge, adjacent._vmin, structures
+                )
+                structures = self.insert_structure(structures, bottom_part)
+
+            if adjacent._vmin < to_merge._vmin < adjacent._vmax:
+                adjacent_structures[i], bottom_part = self.split_structure(
+                    adjacent, to_merge._vmin, structures
+                )
+                structures = self.insert_structure(structures, bottom_part)
+                self.index_map[*bottom_part._indices.T] = -1
+
+            if adjacent._vmin < to_merge._vmax < adjacent._vmax:
+                adjacent_structures[i], bottom_part = self.split_structure(
+                    adjacent, to_merge._vmax, structures
+                )
+                structures = self.insert_structure(structures, bottom_part)
+                self.index_map[*bottom_part._indices.T] = -1
+
+        return to_merge, adjacent_structures, structures
+
     def merge_individual_structure(
         self, to_merge, merged_structures, adjacent_structures, structures
     ):
@@ -203,18 +228,6 @@ class DistributedDendrogramV3(Dendrogram):
             )
         elif len(adjacent_structures) == 1:  # merge into existing structure
             merge_into = adjacent_structures[0]
-            if to_merge._vmin < merge_into._vmin < to_merge._vmax:
-                to_merge, bottom_part = self.split_structure(
-                    to_merge, merge_into._vmin, structures
-                )
-                structures = self.insert_structure(structures, bottom_part)
-            if merge_into._vmin < to_merge._vmin < merge_into._vmax:
-                merge_into, bottom_part = self.split_structure(
-                    merge_into, to_merge._vmin, structures
-                )
-                structures = self.insert_structure(structures, bottom_part)
-                self.index_map[*bottom_part._indices.T] = -1
-
             merge_into._indices = np.vstack([merge_into._indices, to_merge._indices])
             merge_into._values = np.append(merge_into._values, to_merge._values)
             merge_into._vmin = min([merge_into._vmin, to_merge._vmin])
@@ -226,28 +239,6 @@ class DistributedDendrogramV3(Dendrogram):
             )
 
         else:  # create new branch
-            for child in adjacent_structures:
-                if child._vmin < to_merge._vmax and child._vmin > to_merge._vmin:
-                    to_merge, bottom_part = self.split_structure(
-                        to_merge, child._vmin, structures
-                    )
-                    structures = self.insert_structure(structures, bottom_part)
-
-                    child, bottom_part_child = self.split_structure(
-                        child, to_merge._vmax, structures
-                    )
-                    structures = self.insert_structure(structures, bottom_part_child)
-                    self.index_map[*bottom_part_child._indices.T] = -1
-
-                elif child._vmin < to_merge._vmin and child._vmax > to_merge._vmin:
-                    split_at = to_merge._vmax
-                    child, bottom_part = self.split_structure(
-                        child, split_at, structures
-                    )
-                    structures = self.insert_structure(structures, bottom_part)
-                    self.index_map[*bottom_part._indices.T] = -1
-                    # TODO: also break apart to_merge?
-
             branch = Structure(
                 indices=to_merge._indices,
                 values=to_merge._values,
@@ -289,6 +280,16 @@ class DistributedDendrogramV3(Dendrogram):
 
             self.logger.info(
                 f"Merging structure with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} with {len(adjacent_structures)} adjacent structures: {[me.idx for me in adjacent_structures]}."
+            )
+
+            # split structures if needed
+            to_merge, adjacent_structures, structures = self.split_adjacent_structures(
+                to_merge, adjacent_structures, structures
+            )
+
+            # recompute adjacent structures after splitting
+            adjacent_structures = self.get_adjacent_structures(
+                to_merge, merged_structures, self.index_map
             )
 
             # merge the structure into the dendrogram
