@@ -116,6 +116,7 @@ class DistributedDendrogramV3(Dendrogram):
     def compute_pseudo_parallel(data, ntasks, min_npix=0, min_value="min", min_delta=0):
         self = DistributedDendrogramV3()
         self.data = data
+        self.params = dict(min_npix=min_npix, min_value=min_value, min_delta=min_delta)
 
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
             data=self.data,
@@ -260,6 +261,11 @@ class DistributedDendrogramV3(Dendrogram):
             self.merge_structures(to_merge=to_merge, merge_into=merge_into)
 
         else:  # create new branch
+            is_independent = [
+                self.is_independent(adjacent) for adjacent in adjacent_structures
+            ]
+            print(is_independent)
+
             branch = Structure(
                 indices=to_merge._indices,
                 values=to_merge._values,
