@@ -4,6 +4,7 @@ from time import perf_counter
 import logging
 
 from astrodendro.dendrogram import Dendrogram
+from astrodendro import pruning
 
 from dendro.distributed_dendrogram import Structure
 
@@ -13,7 +14,9 @@ class DistributedDendrogramV3(Dendrogram):
     wcs = None
 
     @staticmethod
-    def compute(data, min_npix=0, min_value="min", min_delta=0, **kwargs):
+    def compute(
+        data, min_npix=0, min_value="min", min_delta=0, is_independent=None, **kwargs
+    ):
         assert isinstance(data, ht.DNDarray)
 
         self = DistributedDendrogramV3()
@@ -26,12 +29,16 @@ class DistributedDendrogramV3(Dendrogram):
         #     return Dendrogram.compute(data.numpy(), **kwargs)
 
         local_dendrogram = self.compute_local_dendrogram(
-            min_npix=min_npix, min_value=min_value, min_delta=min_delta, **kwargs
+            min_npix=min_npix,
+            min_value=min_value,
+            min_delta=min_delta,
+            is_independent=is_independent,
+            **kwargs,
         )
 
         structures = self.communicate_structures(local_dendrogram)
 
-        self.compute_from_structures(structures)
+        self.compute_from_structures(structures, is_independent=is_independent)
 
         self.make_output_astrodendro_compatible()
 
@@ -84,7 +91,9 @@ class DistributedDendrogramV3(Dendrogram):
         return structures
 
     @staticmethod
-    def compute_local_dendrogram_pseudo_parallel(data, ntasks, **kwargs):
+    def compute_local_dendrogram_pseudo_parallel(
+        data, ntasks, min_delta=0, min_npix=0, min_value="min", **kwargs
+    ):
         elements_per_task = data.shape[0] // ntasks
         local_slices = [
             slice(i * elements_per_task, (i + 1) * elements_per_task)
@@ -92,7 +101,13 @@ class DistributedDendrogramV3(Dendrogram):
         ]
 
         local_dendrograms = [
-            Dendrogram.compute(np.array(data[s])) for s in local_slices
+            Dendrogram.compute(
+                np.array(data[s]),
+                min_delta=min_delta,
+                min_npix=min_npix,
+                min_value=min_value,
+            )
+            for s in local_slices
         ]
 
         for i, dendrogram in enumerate(local_dendrograms):
@@ -104,12 +119,13 @@ class DistributedDendrogramV3(Dendrogram):
         return local_dendrograms
 
     @staticmethod
-    def compute_pseudo_parallel(data, ntasks):
+    def compute_pseudo_parallel(data, ntasks, min_delta=0, min_npix=0, min_value="min"):
         self = DistributedDendrogramV3()
         self.data = data
+        self.params = dict(min_npix=min_npix, min_value=min_value, min_delta=min_delta)
 
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
-            data=self.data, ntasks=ntasks
+            data=self.data, ntasks=ntasks, min_delta=0, min_npix=0, min_value="min"
         )
 
         all_structures = []
@@ -186,7 +202,12 @@ class DistributedDendrogramV3(Dendrogram):
         return structures
 
     def merge_individual_structure(
-        self, to_merge, merged_structures, adjacent_structures, structures
+        self,
+        to_merge,
+        merged_structures,
+        adjacent_structures,
+        structures,
+        is_independent,
     ):
         if len(adjacent_structures) == 0:  # create new leaf
             leaf = Structure(
@@ -216,12 +237,7 @@ class DistributedDendrogramV3(Dendrogram):
                 )
                 structures = self.insert_structure(structures, bottom_part)
 
-            merge_into._indices = np.vstack([merge_into._indices, to_merge._indices])
-            merge_into._values = np.append(merge_into._values, to_merge._values)
-            merge_into._vmin = min([merge_into._vmin, to_merge._vmin])
-            merge_into._vmax = min([merge_into._vmax, to_merge._vmax])
-            merge_into._smallest_index = np.min(merge_into._indices)
-            self.index_map[*to_merge._indices.T] = merge_into.idx
+            self.merge_structures(to_merge=to_merge, merge_into=merge_into)
             self.logger.info(
                 f"Merged {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} into existing structure, which now has {len(merge_into._values)} values between {merge_into._vmin:.2f} and {merge_into._vmax:.2f}"
             )
@@ -247,25 +263,97 @@ class DistributedDendrogramV3(Dendrogram):
                     structures = self.insert_structure(structures, bottom_part)
                     # TODO: also break apart to_merge?
 
-            branch = Structure(
-                indices=to_merge._indices,
-                values=to_merge._values,
-                idx=len(merged_structures),
-                children=adjacent_structures,
-                dendrogram=self,
-            )
-            self.index_map[*branch._indices.T] = branch.idx
-            merged_structures.append(branch)
-            self.logger.info(
-                f"Created branch with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} and {len(to_merge._children)} children."
-            )
+            # find insignificant leaves
+            merge = [
+                structure
+                for structure in adjacent_structures
+                if structure.is_leaf
+                and (
+                    (
+                        structure.vmax <= to_merge.vmax
+                        and structure.vmin >= to_merge.vmin
+                    )
+                    or not is_independent(structure, index=None, value=to_merge.vmax)
+                )
+            ]
+
+            # Remove merges from list of adjacent structures
+            for structure in merge:
+                adjacent_structures.remove(structure)
+
+            if len(merge) > 0:
+                self.logger.info(
+                    f"Structures {[me.idx for me in merge]} are insignificant. {len(adjacent_structures)} adjacent structures left"
+                )
+
+            if len(adjacent_structures) == 0:
+                belongs_to = merge.pop()
+                self.merge_structures(to_merge=to_merge, merge_into=belongs_to)
+            elif len(adjacent_structures) == 1:
+                belongs_to = adjacent_structures[0]
+                self.merge_structures(to_merge=to_merge, merge_into=belongs_to)
+            else:
+                branch = Structure(
+                    indices=to_merge._indices,
+                    values=to_merge._values,
+                    idx=len(merged_structures),
+                    children=adjacent_structures,
+                    dendrogram=self,
+                )
+                belongs_to = branch
+                self.index_map[*branch._indices.T] = branch.idx
+                merged_structures.append(branch)
+                self.logger.info(
+                    f"Created branch with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} and {len(to_merge._children)} children."
+                )
+
+            # merge insignificant structures
+            for m in merge:
+                print("haaaaaaaaaaaaaa", belongs_to.idx, m.idx, len(merged_structures))
+                print([me.idx for me in merged_structures], np.unique(self.index_map))
+                for s in merged_structures[m.idx + 1 :]:
+                    s.idx -= 1
+                    print(s.idx)
+                    self.index_map[*s._indices.T] = s.idx
+                print([me.idx for me in merged_structures], np.unique(self.index_map))
+                merged_structures.pop(m.idx)
+                # merged_structures = [me for me in merged_structures if me is not m]
+                self.merge_structures(to_merge=m, merge_into=belongs_to)
+
+        # for i, s in enumerate(merged_structures):
+        #     s.idx = i
+        #     self.index_map[*s._indices.T] = s.idx
+        print(np.max(self.index_map), len(merged_structures))
+        if np.max(self.index_map) >= len(merged_structures):
+            breakpoint()
         return merged_structures, structures
 
-    def compute_from_structures(self, structures):
+    def merge_structures(self, to_merge, merge_into):
+        merge_into._indices = np.vstack([merge_into._indices, to_merge._indices])
+        merge_into._values = np.append(merge_into._values, to_merge._values)
+        merge_into._vmin = min([merge_into._vmin, to_merge._vmin])
+        merge_into._vmax = min([merge_into._vmax, to_merge._vmax])
+        merge_into._smallest_index = np.min(merge_into._indices)
+        self.index_map[*to_merge._indices.T] = merge_into.idx
+
+    def compute_from_structures(self, structures, is_independent=None):
         self.logger.info(
             f"Start merging {len(structures)} structures from local dendrograms into one global one."
         )
 
+        # set up is_independent function for merging insignificant leaves
+        tests = [
+            pruning.min_delta(self.params["min_delta"]),
+            pruning.min_npix(self.params["min_npix"]),
+        ]
+        if is_independent is not None:
+            if hasattr(is_independent, "__iter__"):
+                tests.extend(is_independent)
+            else:
+                tests.append(is_independent)
+        is_independent = pruning.all_true(tests)
+
+        # prepare infrastructure
         merged_structures = []
         self.index_map = -np.ones(np.add(self.data.shape, 1), dtype=np.int32)
 
@@ -292,7 +380,11 @@ class DistributedDendrogramV3(Dendrogram):
 
             # merge the structure into the dendrogram
             merged_structures, structures = self.merge_individual_structure(
-                to_merge, merged_structures, adjacent_structures, structures
+                to_merge,
+                merged_structures,
+                adjacent_structures,
+                structures,
+                is_independent=is_independent,
             )
 
         t1 = perf_counter()

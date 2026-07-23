@@ -78,9 +78,30 @@ def test_2D_save_and_load(mpi_ranks, tmp_path):
     compare_dendrograms(compare_to, dendrogram)
 
 
+def test_example_pseudo_parallel():
+    from astropy.io.fits import getdata
+    import astrodendro
+    import numpy as np
+
+    data, header = getdata(
+        f"{astrodendro.__file__[:-24]}/docs/PerA_Extn2MASS_F_Gal.fits", header=True
+    )
+    data = np.array(data, dtype=float)
+
+    kwargs = {
+        "min_value": 2.0,
+        "min_delta": 1.0,
+    }
+
+    d_ref = astrodendro.Dendrogram.compute(data, **kwargs)
+    d = DistributedDendrogramV3.compute_pseudo_parallel(data, 2, **kwargs)
+    compare_dendrograms(d_ref, d)
+
+
 if __name__ == "__main__":
     import logging
 
     logging.basicConfig(level=logging.INFO)
-    test_1D_v3_pseudo_parallel(2, 128)
+    test_example_pseudo_parallel()
+    # test_1D_v3_pseudo_parallel(2, 128)
     # test_2D_v3_pseudo_parallel(2, 32, 2)
