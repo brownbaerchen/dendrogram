@@ -85,5 +85,5 @@ if __name__ == "__main__":
     import logging
 
     logging.basicConfig(level=logging.INFO)
-    test_1D_v3_pseudo_parallel(2, 128)
+    test_1D_v3_pseudo_parallel(2, 65)
     # test_2D_v3_pseudo_parallel(2, 32, 2)
