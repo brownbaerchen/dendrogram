@@ -153,7 +153,7 @@ class DistributedDendrogramV3(Dendrogram):
         structure._vmax = np.max(structure._values)
 
         self.logger.info(
-            f"Split structure at {split_at:.2f}. Remaining top part has {len(structure._values)} values between {structure._vmin:.2f} and {structure._vmax:.2f} and {len(structure._children)} children, bottom part has {len(bottom_part._values)} values between {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}."
+            f"Split structure {structure.idx} at {split_at:.2f}. Remaining top part has {len(structure._values)} values between {structure._vmin:.2f} and {structure._vmax:.2f} and {len(structure._children)} children, bottom part has {len(bottom_part._values)} values between {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}."
         )
         return structure, bottom_part
 
@@ -199,7 +199,7 @@ class DistributedDendrogramV3(Dendrogram):
             self.index_map[*leaf._indices.T] = leaf.idx
             merged_structures.append(leaf)
             self.logger.info(
-                f"Created new leaf with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f}."
+                f"Created new leaf with index {leaf.idx} and {len(leaf._values)} values between {leaf._vmin:.2f} and {leaf._vmax:.2f}."
             )
         elif len(adjacent_structures) == 1:  # merge into existing structure
             merge_into = adjacent_structures[0]
@@ -224,7 +224,7 @@ class DistributedDendrogramV3(Dendrogram):
             merge_into._smallest_index = np.min(merge_into._indices)
             self.index_map[*to_merge._indices.T] = merge_into.idx
             self.logger.info(
-                f"Merged {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} into existing structure, which now has {len(merge_into._values)} values between {merge_into._vmin:.2f} and {merge_into._vmax:.2f}"
+                f"Merged {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} into existing structure {merge_into.idx}, which now has {len(merge_into._values)} values between {merge_into._vmin:.2f} and {merge_into._vmax:.2f}"
             )
 
         else:  # create new branch
@@ -260,7 +260,7 @@ class DistributedDendrogramV3(Dendrogram):
             self.index_map[*branch._indices.T] = branch.idx
             merged_structures.append(branch)
             self.logger.info(
-                f"Created branch with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} and {len(to_merge._children)} children."
+                f"Created branch with index {branch.idx} and {len(branch._values)} values between {branch._vmin:.2f} and {branch._vmax:.2f} and {len(branch._children)} children."
             )
         return merged_structures, structures
 
