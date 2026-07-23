@@ -239,15 +239,6 @@ class DistributedDendrogramV3(Dendrogram):
                     structures = self.insert_structure(structures, bottom_part_child)
                     self.index_map[*bottom_part_child._indices.T] = -1
 
-                elif child._vmin < to_merge._vmin and child._vmax > to_merge._vmin:
-                    split_at = to_merge._vmax
-                    child, bottom_part = self.split_structure(
-                        child, split_at, structures
-                    )
-                    structures = self.insert_structure(structures, bottom_part)
-                    self.index_map[*bottom_part._indices.T] = -1
-                    # TODO: also break apart to_merge?
-
             branch = Structure(
                 indices=to_merge._indices,
                 values=to_merge._values,
