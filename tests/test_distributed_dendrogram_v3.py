@@ -8,7 +8,7 @@ from dendro.utils import compare_dendrograms
 
 
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
-@pytest.mark.parametrize("res", [32, 64])
+@pytest.mark.parametrize("res", [32, 33, 64])
 def test_1D_v3_pseudo_parallel(ntasks, res):
     from dendro.utils import get_1d_data
 
@@ -86,5 +86,5 @@ if __name__ == "__main__":
     import logging
 
     logging.basicConfig(level=logging.INFO)
-    test_1D_v3_pseudo_parallel(2, 32)
+    test_1D_v3_pseudo_parallel(2, 33)
     # test_2D_v3_pseudo_parallel(2, 32, 2)

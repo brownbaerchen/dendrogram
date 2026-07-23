@@ -90,6 +90,7 @@ class DistributedDendrogramV3(Dendrogram):
             slice(i * elements_per_task, (i + 1) * elements_per_task)
             for i in range(ntasks)
         ]
+        local_slices[-1] = slice(local_slices[-1].start, None)
 
         local_dendrograms = [
             Dendrogram.compute(np.array(data[s])) for s in local_slices
