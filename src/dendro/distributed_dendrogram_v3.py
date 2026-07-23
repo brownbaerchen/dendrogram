@@ -92,7 +92,7 @@ class DistributedDendrogramV3(Dendrogram):
 
     @staticmethod
     def compute_local_dendrogram_pseudo_parallel(
-        data, ntasks, min_delta=0, min_npix=0, min_value="min", **kwargs
+        data, ntasks, min_npix=0, min_value="min", min_delta=0, **kwargs
     ):
         elements_per_task = data.shape[0] // ntasks
         local_slices = [
@@ -104,9 +104,9 @@ class DistributedDendrogramV3(Dendrogram):
         local_dendrograms = [
             Dendrogram.compute(
                 np.array(data[s]),
-                min_delta=min_delta,
                 min_npix=min_npix,
                 min_value=min_value,
+                min_delta=min_delta,
             )
             for s in local_slices
         ]
@@ -161,6 +161,17 @@ class DistributedDendrogramV3(Dendrogram):
         else:
             self._uid -= 1
         return self._uid
+
+    def merge_structures(self, to_merge, merge_into):
+        merge_into._indices = np.vstack([merge_into._indices, to_merge._indices])
+        merge_into._values = np.append(merge_into._values, to_merge._values)
+        merge_into._vmin = min([merge_into._vmin, to_merge._vmin])
+        merge_into._vmax = min([merge_into._vmax, to_merge._vmax])
+        merge_into._smallest_index = np.min(merge_into._indices)
+        self.index_map[*to_merge._indices.T] = merge_into.idx
+        self.logger.info(
+            f"Merged {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} into existing structure {merge_into.idx}, which now has {len(merge_into._values)} values between {merge_into._vmin:.2f} and {merge_into._vmax:.2f}"
+        )
 
     def split_structure(self, structure, split_at, structures):
 
@@ -263,11 +274,7 @@ class DistributedDendrogramV3(Dendrogram):
             )
         elif len(adjacent_structures) == 1:  # merge into existing structure
             merge_into = adjacent_structures[0]
-
             self.merge_structures(to_merge=to_merge, merge_into=merge_into)
-            self.logger.info(
-                f"Merged {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} into existing structure {merge_into.idx}, which now has {len(merge_into._values)} values between {merge_into._vmin:.2f} and {merge_into._vmax:.2f}"
-            )
 
         else:  # create new branch
             # find insignificant leaves
@@ -328,14 +335,6 @@ class DistributedDendrogramV3(Dendrogram):
 
         return merged_structures, structures
 
-    def merge_structures(self, to_merge, merge_into):
-        merge_into._indices = np.vstack([merge_into._indices, to_merge._indices])
-        merge_into._values = np.append(merge_into._values, to_merge._values)
-        merge_into._vmin = min([merge_into._vmin, to_merge._vmin])
-        merge_into._vmax = min([merge_into._vmax, to_merge._vmax])
-        merge_into._smallest_index = np.min(merge_into._indices)
-        self.index_map[*to_merge._indices.T] = merge_into.idx
-
     def compute_from_structures(self, structures, is_independent=None):
         self.logger.info(
             f"Start merging {len(structures)} structures from local dendrograms into one global one."
@@ -364,7 +363,7 @@ class DistributedDendrogramV3(Dendrogram):
         while len(structures) > 0:
             self._iterations += 1
             self.logger.info(
-                f"--- Iteration {self._iterations}. Merged {len(merged_structures)} / {len(structures)}."
+                f"--- Iteration {self._iterations}. Merged {len(merged_structures)} / {len(structures) + len(merged_structures)}."
             )
 
             to_merge = structures.pop(0)
