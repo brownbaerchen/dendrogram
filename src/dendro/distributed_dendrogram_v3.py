@@ -113,12 +113,16 @@ class DistributedDendrogramV3(Dendrogram):
         return local_dendrograms
 
     @staticmethod
-    def compute_pseudo_parallel(data, ntasks):
+    def compute_pseudo_parallel(data, ntasks, min_npix=0, min_value="min", min_delta=0):
         self = DistributedDendrogramV3()
         self.data = data
 
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
-            data=self.data, ntasks=ntasks
+            data=self.data,
+            ntasks=ntasks,
+            min_value=min_value,
+            min_npix=min_npix,
+            min_delta=min_delta,
         )
 
         all_structures = []
@@ -132,6 +136,12 @@ class DistributedDendrogramV3(Dendrogram):
 
         self.compute_from_structures(all_structures)
         return self
+
+    def is_independent(self, structure):
+        if self.params["min_npix"] > len(structure._indices):
+            return False
+
+        return True
 
     def get_uid(self):
         if not hasattr(self, "_uid"):
