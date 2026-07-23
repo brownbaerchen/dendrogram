@@ -8,7 +8,7 @@ from dendro.utils import compare_dendrograms
 
 
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
-@pytest.mark.parametrize("res", [32, 64])
+@pytest.mark.parametrize("res", [32, 33, 64])
 @pytest.mark.parametrize("min_npix", [0])
 @pytest.mark.parametrize("min_delta", [0, 0.1, 0.5])
 @pytest.mark.parametrize("min_value", ["min"])
