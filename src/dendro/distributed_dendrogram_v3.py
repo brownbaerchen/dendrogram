@@ -323,7 +323,7 @@ class DistributedDendrogramV3(Dendrogram):
                 self.index_map[*branch._indices.T] = branch.idx
                 merged_structures.append(branch)
                 self.logger.info(
-                    f"Created branch with index {branch.idx} and {len(branch._values)} values between {branch._vmin:.2f} and {branch._vmax:.2f} and {len(branch._children)} children."
+                    f"Created branch with index {branch.idx} and {len(branch._values)} values between {branch._vmin:.2f} and {branch._vmax:.2f} and {len(branch._children)} children : {[me.idx for me in branch._children]}."
                 )
 
             # merge insignificant structures
@@ -387,7 +387,7 @@ class DistributedDendrogramV3(Dendrogram):
             )
 
             self.logger.info(
-                f"Merging structure with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} with {len(adjacent_structures)} adjacent structures."
+                f"Merging structure with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} with {len(adjacent_structures)} adjacent structures: {[me.idx for me in adjacent_structures]}."
             )
 
             # merge the structure into the dendrogram
