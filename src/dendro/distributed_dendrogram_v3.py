@@ -193,12 +193,12 @@ class DistributedDendrogramV3(Dendrogram):
                 )
                 structures = self.insert_structure(structures, bottom_part)
 
-            # if adjacent._vmin < to_merge._vmin < adjacent._vmax:
-            #     adjacent_structures[i], bottom_part = self.split_structure(
-            #         to_merge, adjacent._vmin, structures
-            #     )
-            #     structures = self.insert_structure(structures, bottom_part)
-            #     self.index_map[*bottom_part._indices.T] = -1
+            if adjacent._vmin < to_merge._vmin < adjacent._vmax:
+                adjacent_structures[i], bottom_part = self.split_structure(
+                    adjacent, to_merge._vmin, structures
+                )
+                structures = self.insert_structure(structures, bottom_part)
+                self.index_map[*bottom_part._indices.T] = -1
 
         return to_merge, adjacent_structures, structures
 
@@ -220,13 +220,6 @@ class DistributedDendrogramV3(Dendrogram):
             )
         elif len(adjacent_structures) == 1:  # merge into existing structure
             merge_into = adjacent_structures[0]
-            if merge_into._vmin < to_merge._vmin < merge_into._vmax:
-                merge_into, bottom_part = self.split_structure(
-                    merge_into, to_merge._vmin, structures
-                )
-                structures = self.insert_structure(structures, bottom_part)
-                self.index_map[*bottom_part._indices.T] = -1
-
             merge_into._indices = np.vstack([merge_into._indices, to_merge._indices])
             merge_into._values = np.append(merge_into._values, to_merge._values)
             merge_into._vmin = min([merge_into._vmin, to_merge._vmin])
