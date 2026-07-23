@@ -84,7 +84,9 @@ class DistributedDendrogramV3(Dendrogram):
         return structures
 
     @staticmethod
-    def compute_local_dendrogram_pseudo_parallel(data, ntasks, **kwargs):
+    def compute_local_dendrogram_pseudo_parallel(
+        data, ntasks, min_npix=0, min_value="min", min_delta=0, **kwargs
+    ):
         elements_per_task = data.shape[0] // ntasks
         local_slices = [
             slice(i * elements_per_task, (i + 1) * elements_per_task)
@@ -93,7 +95,13 @@ class DistributedDendrogramV3(Dendrogram):
         local_slices[-1] = slice(local_slices[-1].start, None)
 
         local_dendrograms = [
-            Dendrogram.compute(np.array(data[s])) for s in local_slices
+            Dendrogram.compute(
+                np.array(data[s]),
+                min_npix=min_npix,
+                min_value=min_value,
+                min_delta=min_delta,
+            )
+            for s in local_slices
         ]
 
         for i, dendrogram in enumerate(local_dendrograms):
