@@ -29,9 +29,9 @@ class DistributedDendrogramV3(Dendrogram):
         #     return Dendrogram.compute(data.numpy(), **kwargs)
 
         local_dendrogram = self.compute_local_dendrogram(
-            min_npix=min_npix,
+            # min_npix=min_npix,
             min_value=min_value,
-            min_delta=min_delta,
+            # min_delta=min_delta,
             is_independent=is_independent,
             **kwargs,
         )
@@ -44,13 +44,22 @@ class DistributedDendrogramV3(Dendrogram):
 
         return self
 
-    def make_output_astrodendro_compatible(self):
+    def make_output_astrodendro_compatible(self, is_independent):
 
-        self.data = self.data.numpy()
+        if isinstance(self.data, ht.DNDarray):
+            self.data = self.data.numpy()
 
         # Remove border from index map
         s = tuple(slice(0, s, 1) for s in self.data.shape)
         self.index_map = self.index_map[s]
+
+        from astrodendro.dendrogram import _make_trunk
+
+        _make_trunk(
+            self,
+            {i: structure for i, structure in enumerate(self.all_structures)},
+            is_independent,
+        )
 
     def compute_local_dendrogram(self, **kwargs):
         data = self.data
@@ -105,21 +114,21 @@ class DistributedDendrogramV3(Dendrogram):
             Dendrogram.compute(
                 np.array(data[s]),
                 # min_npix=min_npix,
-                # min_value=min_value,
+                min_value=min_value,
                 # min_delta=min_delta,
             )
             for s in local_slices
         ]
 
-        empty_dendrograms = [
-            i for i, d in enumerate(local_dendrograms) if len(d.trunk) == 0
-        ]
-        if 0 < len(empty_dendrograms) < len(local_dendrograms):
-            for i in empty_dendrograms:
-                local_dendrograms[i] = Dendrogram.compute(
-                    np.array(data[local_slices[i]]),
-                    min_delta=np.ptp(data[local_slices[i]]),
-                )
+        # empty_dendrograms = [
+        #     i for i, d in enumerate(local_dendrograms) if len(d.trunk) == 0
+        # ]
+        # if 0 < len(empty_dendrograms) < len(local_dendrograms):
+        #     for i in empty_dendrograms:
+        #         local_dendrograms[i] = Dendrogram.compute(
+        #             np.array(data[local_slices[i]]),
+        #             min_delta=np.ptp(data[local_slices[i]]),
+        #         )
 
         for i, dendrogram in enumerate(local_dendrograms):
             for structure in dendrogram.all_structures:
@@ -403,17 +412,7 @@ class DistributedDendrogramV3(Dendrogram):
             structure for structure in merged_structures if structure.parent is None
         ]
 
-        # make astrodendro-compatible
-        for structure in merged_structures:
-            structure._level = 0
-            if structure.parent is not None:
-                parent = structure.parent
-                while parent is not None:
-                    structure._level += 1
-                    parent = parent.parent
-
-            structure._values = list(structure._values)
-            structure._indices = [tuple(me) for me in structure._indices]
+        self.make_output_astrodendro_compatible(is_independent=is_independent)
 
     @staticmethod
     def get_adjacent_structure_indices(structure, index_map):
