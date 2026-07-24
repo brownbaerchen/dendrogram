@@ -51,6 +51,10 @@ class DistributedDendrogramV3(Dendrogram):
         s = tuple(slice(0, s, 1) for s in self.data.shape)
         self.index_map = self.index_map[s]
 
+        for s in self.all_structures:
+            s._indices = list(s._indices)
+            s._values = list(s._values)
+
         from astrodendro.dendrogram import _make_trunk
 
         _make_trunk(
