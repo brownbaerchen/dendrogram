@@ -40,8 +40,6 @@ class DistributedDendrogramV3(Dendrogram):
 
         self.compute_from_structures(structures, is_independent=is_independent)
 
-        self.make_output_astrodendro_compatible()
-
         return self
 
     def make_output_astrodendro_compatible(self, is_independent):
@@ -70,12 +68,16 @@ class DistributedDendrogramV3(Dendrogram):
         t1 = perf_counter()
         self.time_local_dendrogram = t1 - t0
 
-        # add offsets to local indices
-        _, offsets = data.counts_displs()
-        offset = np.zeros((1, data.ndim), dtype=int)
-        offset[:, data.split] = offsets[comm.rank]
-        for structure in local_dendrogram.all_structures:
-            structure._indices = np.array(structure._indices) + offset
+        if data.is_distributed():
+            # add offsets to local indices
+            _, offsets = data.counts_displs()
+            offset = np.zeros((1, data.ndim), dtype=int)
+            offset[:, data.split] = offsets[comm.rank]
+            for structure in local_dendrogram.all_structures:
+                structure._indices = np.array(structure._indices) + offset
+        else:
+            for structure in local_dendrogram.all_structures:
+                structure._indices = np.array(structure._indices)
 
         return local_dendrogram
 
