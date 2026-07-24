@@ -44,6 +44,9 @@ class DistributedDendrogramV3(Dendrogram):
 
     def make_output_astrodendro_compatible(self, is_independent):
 
+        t0 = perf_counter()
+        self.logger.info("Start making compatible with astrodendro")
+
         if isinstance(self.data, ht.DNDarray):
             self.data = self.data.numpy()
 
@@ -62,6 +65,10 @@ class DistributedDendrogramV3(Dendrogram):
             {i: structure for i, structure in enumerate(self.all_structures)},
             is_independent,
         )
+        t1 = perf_counter()
+        self.logger.info(
+            f"Finished making compatible with astrodendro after {t1 - t0:.2e}s"
+        )
 
     def compute_local_dendrogram(self, **kwargs):
         data = self.data
@@ -71,6 +78,7 @@ class DistributedDendrogramV3(Dendrogram):
         local_dendrogram = Dendrogram.compute(data.larray.numpy(), **kwargs)
         t1 = perf_counter()
         self.time_local_dendrogram = t1 - t0
+        self.logger.info(f"Finished computing local dendrogram after {t1 - t0:.2e}s")
 
         if data.is_distributed():
             # add offsets to local indices
@@ -86,6 +94,8 @@ class DistributedDendrogramV3(Dendrogram):
         return local_dendrogram
 
     def communicate_structures(self, local_dendrogram):
+        t0 = perf_counter()
+        self.logger.info("Starting to communicate structures")
         structures = [structure for structure in local_dendrogram.all_structures]
 
         # unpack data from structures for communication
@@ -103,6 +113,8 @@ class DistributedDendrogramV3(Dendrogram):
                 for me in _data:
                     structures += [Structure(idx=me[0], indices=me[1], values=me[2])]
 
+        t1 = perf_counter()
+        self.logger.info(f"Finished communicating structures in {t1 - t0:.2e}s")
         return structures
 
     @staticmethod
