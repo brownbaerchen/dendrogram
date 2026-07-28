@@ -9,9 +9,23 @@ from astrodendro import pruning
 from dendro.distributed_dendrogram import Structure
 
 
-class DistributedDendrogramV3(Dendrogram):
+def get_logger():
+    class MPIFormatter(logging.Formatter):
+        def format(self, record):
+            record.rank = ht.comm.rank
+            return super().format(record)
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(MPIFormatter("[Rank %(rank)3d] %(levelname)s: %(message)s"))
     logger = logging.getLogger("Dendrogram")
+    logger.addHandler(handler)
+    logger.propagate = False
+    return logger
+
+
+class DistributedDendrogramV3(Dendrogram):
     wcs = None
+    logger = get_logger()
 
     @staticmethod
     def compute(
@@ -29,7 +43,7 @@ class DistributedDendrogramV3(Dendrogram):
         #     return Dendrogram.compute(data.numpy(), **kwargs)
 
         local_dendrogram = self.compute_local_dendrogram(
-            # min_npix=min_npix,
+            min_npix=min_npix // self.comm.size,
             min_value=min_value,
             # min_delta=min_delta,
             is_independent=is_independent,
@@ -73,6 +87,9 @@ class DistributedDendrogramV3(Dendrogram):
         data = self.data
         comm = data.comm
 
+        self.logger.info(
+            f"Start computing local dendrogram with local data of shape {data.lshape}"
+        )
         t0 = perf_counter()
         local_dendrogram = Dendrogram.compute(data.larray.numpy(), **kwargs)
         t1 = perf_counter()
@@ -82,7 +99,7 @@ class DistributedDendrogramV3(Dendrogram):
         )
 
         self.logger.info("Adding offsets to structures")
-        if data.is_distributed() and comm.rank > 0:
+        if data.is_distributed():
             # add offsets to local indices
             _, offsets = data.counts_displs()
             offset = np.zeros((1, data.ndim), dtype=int)
@@ -97,7 +114,9 @@ class DistributedDendrogramV3(Dendrogram):
         return local_dendrogram
 
     def communicate_structures(self, local_dendrogram):
-        self.logger.info("Starting to communicate structures")
+        self.logger.info(
+            f"Starting to communicate {len(local_dendrogram)} local structures"
+        )
         t0 = perf_counter()
 
         structures = [structure for structure in local_dendrogram.all_structures]
@@ -132,7 +151,9 @@ class DistributedDendrogramV3(Dendrogram):
 
         local_dendrograms = [
             Dendrogram.compute(
-                np.array(data[s]), min_value=kwargs.get("min_value", "min")
+                np.array(data[s]),
+                min_value=kwargs.get("min_value", "min"),
+                min_npix=kwargs.get("min_npix", 0) // ntasks,
             )
             for s in local_slices
         ]
