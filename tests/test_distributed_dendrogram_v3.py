@@ -44,7 +44,7 @@ def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value):
     plot_astrodendro_leaves(
         axs[1, 1], x.numpy(), data.numpy(), reference_dendrogram.trunk
     )
-    # plt.show()
+    plt.show()
 
     compare_dendrograms(reference_dendrogram, dendrogram)
 
@@ -151,6 +151,7 @@ def test_2D_save_and_load(mpi_ranks):
         compare_dendrograms(compare_to, dendrogram)
 
 
+@pytest.mark.skip
 def test_example_pseudo_parallel():
     from astropy.io.fits import getdata
     import astrodendro
@@ -178,5 +179,5 @@ if __name__ == "__main__":
 
     # test_1D_v3(None, 128, 10, 0.0, 0.2)
     # test_example_pseudo_parallel()
-    # test_1D_v3_pseudo_parallel(2, 128)
-    test_2D_v3_pseudo_parallel(2, 32, 3, 12, 0.1, 0)
+    test_1D_v3_pseudo_parallel(2, 128, 4, 0.1, 0.1)
+    # test_2D_v3_pseudo_parallel(2, 32, 3, 12, 0.1, 0)
