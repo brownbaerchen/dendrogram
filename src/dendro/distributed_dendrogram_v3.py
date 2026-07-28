@@ -3,7 +3,7 @@ import numpy as np
 from time import perf_counter
 import logging
 
-from astrodendro.dendrogram import Dendrogram
+from astrodendro.dendrogram import Dendrogram, _make_trunk
 from astrodendro import pruning
 
 from dendro.distributed_dendrogram import Structure
@@ -58,13 +58,12 @@ class DistributedDendrogramV3(Dendrogram):
             s._indices = list(s._indices)
             s._values = list(s._values)
 
-        from astrodendro.dendrogram import _make_trunk
-
         _make_trunk(
             self,
             {i: structure for i, structure in enumerate(self.all_structures)},
             is_independent,
         )
+
         t1 = perf_counter()
         self.logger.info(
             f"Finished making compatible with astrodendro after {t1 - t0:.2e}s"
@@ -98,8 +97,9 @@ class DistributedDendrogramV3(Dendrogram):
         return local_dendrogram
 
     def communicate_structures(self, local_dendrogram):
-        t0 = perf_counter()
         self.logger.info("Starting to communicate structures")
+        t0 = perf_counter()
+
         structures = [structure for structure in local_dendrogram.all_structures]
 
         # unpack data from structures for communication
