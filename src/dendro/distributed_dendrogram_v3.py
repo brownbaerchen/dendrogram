@@ -131,7 +131,10 @@ class DistributedDendrogramV3(Dendrogram):
         local_slices[-1] = slice(local_slices[-1].start, None)
 
         local_dendrograms = [
-            Dendrogram.compute(np.array(data[s]), **kwargs) for s in local_slices
+            Dendrogram.compute(
+                np.array(data[s]), min_value=kwargs.get("min_value", "min")
+            )
+            for s in local_slices
         ]
 
         # empty_dendrograms = [
@@ -390,13 +393,6 @@ class DistributedDendrogramV3(Dendrogram):
             )
 
             to_merge = structures.pop(0)
-
-            # split structure at maximum of next structure
-            if to_merge._vmin < structures[0]._vmax < to_merge._vmax:
-                to_merge, bottom_part = self.split_structure(
-                    to_merge, structures[0]._vmax, structures
-                )
-                structures = self.insert_structure(structures, bottom_part)
 
             # find adjacent structures
             adjacent_structures = self.get_adjacent_structures(
