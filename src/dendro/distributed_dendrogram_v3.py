@@ -391,6 +391,13 @@ class DistributedDendrogramV3(Dendrogram):
 
             to_merge = structures.pop(0)
 
+            # split structure at maximum of next structure
+            if to_merge._vmin < structures[0]._vmax < to_merge._vmax:
+                to_merge, bottom_part = self.split_structure(
+                    to_merge, structures[0]._vmax, structures
+                )
+                structures = self.insert_structure(structures, bottom_part)
+
             # find adjacent structures
             adjacent_structures = self.get_adjacent_structures(
                 to_merge, merged_structures, self.index_map
@@ -418,6 +425,15 @@ class DistributedDendrogramV3(Dendrogram):
                 structures,
                 is_independent=is_independent,
             )
+
+            # from dendro.utils import plot_astrodendro_leaves
+            # import matplotlib.pyplot as plt
+            # fig, axs = plt.subplots(1, 2)
+            # plot_astrodendro_leaves(axs[0], np.arange(self.data.shape[0]), self.data, merged_structures)
+            # plot_astrodendro_leaves(axs[1], np.arange(self.data.shape[0]), self.data, structures)
+            # plt.pause(1e-9)
+            # breakpoint()
+            # fig.clf()
 
         t1 = perf_counter()
         self.time_merge_dendrograms = t1 - t0
@@ -448,3 +464,11 @@ class DistributedDendrogramV3(Dendrogram):
             [merged_structures[i].ancestor.idx for i in adjacent_structure_indices]
         )
         return [merged_structures[i] for i in ancestor_indices]
+
+    @staticmethod
+    def structure_is_contiguous(structure, index_map):
+        nz = np.nonzero(index_map == structure.idx)
+        for me in nz:
+            if np.any(me[1:] - me[:-1]) > 0:
+                return False
+        return True

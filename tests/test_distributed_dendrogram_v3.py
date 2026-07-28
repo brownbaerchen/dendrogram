@@ -179,5 +179,5 @@ if __name__ == "__main__":
 
     # test_1D_v3(None, 128, 10, 0.0, 0.2)
     # test_example_pseudo_parallel()
-    test_1D_v3_pseudo_parallel(2, 128, 4, 0.1, 0.1)
+    test_1D_v3_pseudo_parallel(2, 64, 0, 0.1, "min")
     # test_2D_v3_pseudo_parallel(2, 32, 3, 12, 0.1, 0)
