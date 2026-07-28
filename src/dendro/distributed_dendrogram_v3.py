@@ -171,7 +171,7 @@ class DistributedDendrogramV3(Dendrogram):
         merge_into._indices = np.vstack([merge_into._indices, to_merge._indices])
         merge_into._values = np.append(merge_into._values, to_merge._values)
         merge_into._vmin = min([merge_into._vmin, to_merge._vmin])
-        merge_into._vmax = min([merge_into._vmax, to_merge._vmax])
+        merge_into._vmax = max([merge_into._vmax, to_merge._vmax])
         merge_into._smallest_index = np.min(merge_into._indices)
         self.index_map[*to_merge._indices.T] = merge_into.idx
         self.logger.info(
