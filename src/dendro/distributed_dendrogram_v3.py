@@ -66,13 +66,22 @@ class DistributedDendrogramV3(Dendrogram):
         local_dendrogram = Dendrogram.compute(data.larray.numpy(), **kwargs)
         t1 = perf_counter()
         self.time_local_dendrogram = t1 - t0
+        self.logger.info(
+            f"Finished computing local dendrogram with {len(local_dendrogram._structures_dict)} structures after {t1 - t0:.2e}s"
+        )
 
-        # add offsets to local indices
-        _, offsets = data.counts_displs()
-        offset = np.zeros((1, data.ndim), dtype=int)
-        offset[:, data.split] = offsets[comm.rank]
-        for structure in local_dendrogram.all_structures:
-            structure._indices = np.array(structure._indices) + offset
+        self.logger.info("Adding offsets to structures")
+        if data.is_distributed() and comm.rank > 0:
+            # add offsets to local indices
+            _, offsets = data.counts_displs()
+            offset = np.zeros((1, data.ndim), dtype=int)
+            offset[:, data.split] = offsets[comm.rank]
+            for structure in local_dendrogram.all_structures:
+                structure._indices = np.array(structure._indices) + offset
+        else:
+            for structure in local_dendrogram.all_structures:
+                structure._indices = np.array(structure._indices)
+        self.logger.info("Finished adding offsets to structures")
 
         return local_dendrogram
 
