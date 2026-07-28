@@ -3,7 +3,7 @@ import numpy as np
 
 
 def get_1d_data(n):
-    x = ht.linspace(0, 1, n)
+    x = ht.linspace(0, 1, n, split=0)
 
     peaks = [0.25, 0.4, 0.5, 0.65]
     heights = [0.2, 0.8, 0.6, 0.7]

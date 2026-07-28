@@ -39,11 +39,24 @@ class DistributedDendrogramV3(Dendrogram):
 
     def make_output_astrodendro_compatible(self):
 
-        self.data = self.data.numpy()
+        t0 = perf_counter()
+        self.logger.info("Start making compatible with astrodendro")
+
+        if isinstance(self.data, ht.DNDarray):
+            self.data = self.data.numpy()
 
         # Remove border from index map
         s = tuple(slice(0, s, 1) for s in self.data.shape)
         self.index_map = self.index_map[s]
+
+        for s in self.all_structures:
+            s._indices = list(s._indices)
+            s._values = list(s._values)
+
+        t1 = perf_counter()
+        self.logger.info(
+            f"Finished making compatible with astrodendro after {t1 - t0:.2e}s"
+        )
 
     def compute_local_dendrogram(self, **kwargs):
         data = self.data
@@ -53,17 +66,29 @@ class DistributedDendrogramV3(Dendrogram):
         local_dendrogram = Dendrogram.compute(data.larray.numpy(), **kwargs)
         t1 = perf_counter()
         self.time_local_dendrogram = t1 - t0
+        self.logger.info(
+            f"Finished computing local dendrogram with {len(local_dendrogram._structures_dict)} structures after {t1 - t0:.2e}s"
+        )
 
-        # add offsets to local indices
-        _, offsets = data.counts_displs()
-        offset = np.zeros((1, data.ndim), dtype=int)
-        offset[:, data.split] = offsets[comm.rank]
-        for structure in local_dendrogram.all_structures:
-            structure._indices = np.array(structure._indices) + offset
+        self.logger.info("Adding offsets to structures")
+        if data.is_distributed() and comm.rank > 0:
+            # add offsets to local indices
+            _, offsets = data.counts_displs()
+            offset = np.zeros((1, data.ndim), dtype=int)
+            offset[:, data.split] = offsets[comm.rank]
+            for structure in local_dendrogram.all_structures:
+                structure._indices = np.array(structure._indices) + offset
+        else:
+            for structure in local_dendrogram.all_structures:
+                structure._indices = np.array(structure._indices)
+        self.logger.info("Finished adding offsets to structures")
 
         return local_dendrogram
 
     def communicate_structures(self, local_dendrogram):
+        self.logger.info("Starting to communicate structures")
+        t0 = perf_counter()
+
         structures = [structure for structure in local_dendrogram.all_structures]
 
         # unpack data from structures for communication
@@ -81,6 +106,8 @@ class DistributedDendrogramV3(Dendrogram):
                 for me in _data:
                     structures += [Structure(idx=me[0], indices=me[1], values=me[2])]
 
+        t1 = perf_counter()
+        self.logger.info(f"Finished communicating structures in {t1 - t0:.2e}s")
         return structures
 
     @staticmethod
@@ -144,7 +171,7 @@ class DistributedDendrogramV3(Dendrogram):
         merge_into._indices = np.vstack([merge_into._indices, to_merge._indices])
         merge_into._values = np.append(merge_into._values, to_merge._values)
         merge_into._vmin = min([merge_into._vmin, to_merge._vmin])
-        merge_into._vmax = min([merge_into._vmax, to_merge._vmax])
+        merge_into._vmax = max([merge_into._vmax, to_merge._vmax])
         merge_into._smallest_index = np.min(merge_into._indices)
         self.index_map[*to_merge._indices.T] = merge_into.idx
         self.logger.info(
@@ -315,17 +342,7 @@ class DistributedDendrogramV3(Dendrogram):
             structure for structure in merged_structures if structure.parent is None
         ]
 
-        # make astrodendro-compatible
-        for structure in merged_structures:
-            structure._level = 0
-            if structure.parent is not None:
-                parent = structure.parent
-                while parent is not None:
-                    structure._level += 1
-                    parent = parent.parent
-
-            structure._values = list(structure._values)
-            structure._indices = [tuple(me) for me in structure._indices]
+        self.make_output_astrodendro_compatible()
 
     @staticmethod
     def get_adjacent_structure_indices(structure, index_map):
