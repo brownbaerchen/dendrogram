@@ -78,9 +78,12 @@ class DistributedDendrogramV3(Dendrogram):
         local_dendrogram = Dendrogram.compute(data.larray.numpy(), **kwargs)
         t1 = perf_counter()
         self.time_local_dendrogram = t1 - t0
-        self.logger.info(f"Finished computing local dendrogram after {t1 - t0:.2e}s")
+        self.logger.info(
+            f"Finished computing local dendrogram with {len(local_dendrogram._structures_dict)} structures after {t1 - t0:.2e}s"
+        )
 
-        if data.is_distributed():
+        self.logger.info("Adding offsets to structures")
+        if data.is_distributed() and comm.rank > 0:
             # add offsets to local indices
             _, offsets = data.counts_displs()
             offset = np.zeros((1, data.ndim), dtype=int)
@@ -90,6 +93,7 @@ class DistributedDendrogramV3(Dendrogram):
         else:
             for structure in local_dendrogram.all_structures:
                 structure._indices = np.array(structure._indices)
+        self.logger.info("Finished adding offsets to structures")
 
         return local_dendrogram
 
@@ -118,9 +122,7 @@ class DistributedDendrogramV3(Dendrogram):
         return structures
 
     @staticmethod
-    def compute_local_dendrogram_pseudo_parallel(
-        data, ntasks, min_npix=0, min_value="min", min_delta=0, **kwargs
-    ):
+    def compute_local_dendrogram_pseudo_parallel(data, ntasks, **kwargs):
         elements_per_task = data.shape[0] // ntasks
         local_slices = [
             slice(i * elements_per_task, (i + 1) * elements_per_task)
@@ -129,13 +131,7 @@ class DistributedDendrogramV3(Dendrogram):
         local_slices[-1] = slice(local_slices[-1].start, None)
 
         local_dendrograms = [
-            Dendrogram.compute(
-                np.array(data[s]),
-                # min_npix=min_npix,
-                min_value=min_value,
-                # min_delta=min_delta,
-            )
-            for s in local_slices
+            Dendrogram.compute(np.array(data[s]), **kwargs) for s in local_slices
         ]
 
         # empty_dendrograms = [
