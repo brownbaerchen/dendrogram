@@ -86,6 +86,9 @@ class DistributedDendrogramV3(Dendrogram):
         return local_dendrogram
 
     def communicate_structures(self, local_dendrogram):
+        self.logger.info("Starting to communicate structures")
+        t0 = perf_counter()
+
         structures = [structure for structure in local_dendrogram.all_structures]
 
         # unpack data from structures for communication
@@ -103,6 +106,8 @@ class DistributedDendrogramV3(Dendrogram):
                 for me in _data:
                     structures += [Structure(idx=me[0], indices=me[1], values=me[2])]
 
+        t1 = perf_counter()
+        self.logger.info(f"Finished communicating structures in {t1 - t0:.2e}s")
         return structures
 
     @staticmethod
