@@ -342,17 +342,7 @@ class DistributedDendrogramV3(Dendrogram):
             structure for structure in merged_structures if structure.parent is None
         ]
 
-        # make astrodendro-compatible
-        for structure in merged_structures:
-            structure._level = 0
-            if structure.parent is not None:
-                parent = structure.parent
-                while parent is not None:
-                    structure._level += 1
-                    parent = parent.parent
-
-            structure._values = list(structure._values)
-            structure._indices = [tuple(me) for me in structure._indices]
+        self.make_output_astrodendro_compatible()
 
     @staticmethod
     def get_adjacent_structure_indices(structure, index_map):
