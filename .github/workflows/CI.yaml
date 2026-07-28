@@ -42,6 +42,9 @@ jobs:
           environment-file: "environment.yml"
           create-args: >-
               python=${{ matrix.python }}
+      - name: Reinstall astrodendro directly from github
+        run: |
+          pip install --force-reinstall git+https://github.com/dendrograms/astrodendro.git
       - name: Install dendro as a package in the current environment
         run: |
           pip install --no-deps -e .
