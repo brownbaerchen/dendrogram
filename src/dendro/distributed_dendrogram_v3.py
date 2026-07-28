@@ -39,11 +39,24 @@ class DistributedDendrogramV3(Dendrogram):
 
     def make_output_astrodendro_compatible(self):
 
-        self.data = self.data.numpy()
+        t0 = perf_counter()
+        self.logger.info("Start making compatible with astrodendro")
+
+        if isinstance(self.data, ht.DNDarray):
+            self.data = self.data.numpy()
 
         # Remove border from index map
         s = tuple(slice(0, s, 1) for s in self.data.shape)
         self.index_map = self.index_map[s]
+
+        for s in self.all_structures:
+            s._indices = list(s._indices)
+            s._values = list(s._values)
+
+        t1 = perf_counter()
+        self.logger.info(
+            f"Finished making compatible with astrodendro after {t1 - t0:.2e}s"
+        )
 
     def compute_local_dendrogram(self, **kwargs):
         data = self.data
