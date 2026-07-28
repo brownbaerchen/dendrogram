@@ -33,8 +33,6 @@ class DistributedDendrogramV3(Dendrogram):
 
         self.compute_from_structures(structures)
 
-        self.make_output_astrodendro_compatible()
-
         return self
 
     def make_output_astrodendro_compatible(self):
