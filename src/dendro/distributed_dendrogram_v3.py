@@ -424,6 +424,19 @@ class DistributedDendrogramV3(Dendrogram):
                 f"Merging structure with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} with {len(adjacent_structures)} adjacent structures: {[me.idx for me in adjacent_structures]}."
             )
 
+            # check if we need to break up some more in order to capture all possible local minima
+            adjacent_structures_peak = self.get_adjacent_structures(
+                to_merge, merged_structures, self.index_map, peak=True
+            )
+            if len(adjacent_structures_peak) < len(adjacent_structures):
+                to_merge, bottom_part = self.split_structure(
+                    to_merge,
+                    to_merge._vmin + 10 * np.finfo(to_merge._vmax).eps,
+                    structures,
+                )
+                structures = self.insert_structure(structures, bottom_part)
+                adjacent_structures = adjacent_structures_peak
+
             # split structures if needed
             to_merge, adjacent_structures, structures = self.split_adjacent_structures(
                 to_merge, adjacent_structures, structures
@@ -462,9 +475,15 @@ class DistributedDendrogramV3(Dendrogram):
         self.make_output_astrodendro_compatible(is_independent=is_independent)
 
     @staticmethod
-    def get_adjacent_structure_indices(structure, index_map):
+    def get_adjacent_structure_indices(structure, index_map, peak=False):
         adjacent = []
-        idx = np.array(structure._indices)
+
+        if peak:
+            max_idx = np.argmax(structure._values)
+            idx = structure._indices[max_idx].reshape((1, -1))
+        else:
+            idx = np.array(structure._indices)
+
         for i in range(idx.shape[1]):
             one = np.zeros((1, idx.shape[1]), dtype=int)
             one[:, i] = 1
@@ -473,9 +492,11 @@ class DistributedDendrogramV3(Dendrogram):
         return [me for me in np.unique(adjacent) if me >= 0]
 
     @staticmethod
-    def get_adjacent_structures(structure, merged_structures, index_map):
+    def get_adjacent_structures(structure, merged_structures, index_map, peak=False):
         adjacent_structure_indices = (
-            DistributedDendrogramV3.get_adjacent_structure_indices(structure, index_map)
+            DistributedDendrogramV3.get_adjacent_structure_indices(
+                structure, index_map, peak=peak
+            )
         )
         ancestor_indices = np.unique(
             [merged_structures[i].ancestor.idx for i in adjacent_structure_indices]
