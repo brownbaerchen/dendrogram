@@ -151,8 +151,11 @@ def test_2D_save_and_load(mpi_ranks):
         compare_dendrograms(compare_to, dendrogram)
 
 
-@pytest.mark.skip
-def test_example_pseudo_parallel():
+@pytest.mark.parametrize("ntasks", [1])  # , 2, 4])
+@pytest.mark.parametrize("min_value", [2])
+@pytest.mark.parametrize("min_delta", [0])  # , 0.02])
+@pytest.mark.parametrize("min_npix", [0])  # , 4])
+def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix):
     from astropy.io.fits import getdata
     import astrodendro
     import numpy as np
@@ -163,12 +166,13 @@ def test_example_pseudo_parallel():
     data = np.array(data, dtype=float)
 
     kwargs = {
-        "min_value": 2.0,
-        "min_delta": 1.0,
+        "min_value": min_value,
+        "min_delta": min_delta,
+        "min_npix": min_npix,
     }
 
     d_ref = astrodendro.Dendrogram.compute(data, **kwargs)
-    d = DistributedDendrogramV3.compute_pseudo_parallel(data, 2, **kwargs)
+    d = DistributedDendrogramV3.compute_pseudo_parallel(data, ntasks, **kwargs)
     compare_dendrograms(d_ref, d)
 
 
