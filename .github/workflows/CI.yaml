@@ -35,7 +35,7 @@ jobs:
         shell: bash -l {0}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Install Conda environment with Micromamba
         uses: mamba-org/setup-micromamba@v1
         with:
@@ -43,13 +43,13 @@ jobs:
           create-args: >-
               python=${{ matrix.python }}
       - name: Checkout astrodendro
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: dendrograms/astrodendro
-          path: ./astrodendro
+          path: ./astrodendro-repo
       - name: Reinstall astrodendro
         run: |
-          pip install --force-reinstall --no-deps -e ./astrodendro
+          pip install --force-reinstall --no-deps -e ./astrodendro-repo
       - name: Install dendro as a package in the current environment
         run: |
           pip install --no-deps -e .
