@@ -431,7 +431,7 @@ class DistributedDendrogramV3(Dendrogram):
             if len(adjacent_structures_peak) < len(adjacent_structures):
                 to_merge, bottom_part = self.split_structure(
                     to_merge,
-                    to_merge._vmax - 10 * np.finfo(to_merge._vmax).eps,
+                    to_merge._vmin + 10 * np.finfo(to_merge._vmax).eps,
                     structures,
                 )
                 structures = self.insert_structure(structures, bottom_part)
