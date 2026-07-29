@@ -481,11 +481,3 @@ class DistributedDendrogramV3(Dendrogram):
             [merged_structures[i].ancestor.idx for i in adjacent_structure_indices]
         )
         return [merged_structures[i] for i in ancestor_indices]
-
-    @staticmethod
-    def structure_is_contiguous(structure, index_map):
-        nz = np.nonzero(index_map == structure.idx)
-        for me in nz:
-            if np.any(me[1:] - me[:-1]) > 0:
-                return False
-        return True
