@@ -12,7 +12,7 @@ from dendro.utils import compare_dendrograms
 @pytest.mark.parametrize("min_npix", [0, 6, 23])
 @pytest.mark.parametrize("min_delta", [0, 0.1, 0.5])
 @pytest.mark.parametrize("min_value", ["min", 0.2])
-def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value):
+def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show=False):
     from dendro.utils import get_1d_data
 
     x, data = get_1d_data(res)
@@ -60,7 +60,8 @@ def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value):
     plot_astrodendro_leaves(
         axs_bottom[1], x.numpy(), data.numpy(), reference_dendrogram.trunk
     )
-    # plt.show()
+    if show:
+        plt.show()
 
     compare_dendrograms(reference_dendrogram, dendrogram)
 
@@ -199,8 +200,8 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logging.basicConfig(level=logging.INFO)
 
-    # test_1D_v3_pseudo_parallel(2, 32, 6, 0.0, 0.0)
-    # test_1D_v3_pseudo_parallel(2, 33, 0, 0.0, 0.0)
+    # test_1D_v3_pseudo_parallel(2, 32, 6, 0.0, 0.0, show=True)
+    # test_1D_v3_pseudo_parallel(2, 33, 0, 0.0, 0.0, show=True)
     test_1D_v3(2, 33, 0, 0.0, 0.0)
     # test_2D_v3_pseudo_parallel(4, 32, 3, 0, 0, 0)
     # test_example_pseudo_parallel(2, 2, 0, 0)
