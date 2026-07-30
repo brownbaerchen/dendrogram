@@ -84,13 +84,40 @@ class DistributedDendrogramV3(Dendrogram):
         )
 
     def _compute_single_local_dendrogram(self, local_data, **kwargs):
+        # remove border of local data (will be added separately)
+        local_data_no_borders = local_data.copy()
+        borders = local_data.copy()
+        borders[...] = np.nan
+        for i in range(local_data_no_borders.ndim):
+            slices = [slice(None) for _ in range(local_data.ndim)]
+            slices[i] = 0
+            borders[*slices] = local_data[*slices]
+            local_data_no_borders[*slices] = np.nan
+            slices[i] = -1
+            borders[*slices] = local_data[*slices]
+            local_data_no_borders[*slices] = np.nan
+
         t0 = perf_counter()
-        local_dendrogram = Dendrogram.compute(local_data, **kwargs)
+        local_dendrogram = Dendrogram.compute(local_data_no_borders, **kwargs)
         t1 = perf_counter()
         self.time_local_dendrogram = t1 - t0
         self.logger.info(
-            f"Finished computing local dendrogram with {len(local_dendrogram._structures_dict)} structures after {t1 - t0:.2e}s"
+            f"Finished computing local dendrogram with {len(local_dendrogram._structures_dict)} structures in {t1 - t0:.2e}s"
         )
+
+        t0 = perf_counter()
+        local_dendrogram_borders = Dendrogram.compute(
+            borders, **{**kwargs, "min_npix": 0}
+        )
+        t1 = perf_counter()
+        self.time_local_dendrogram = t1 - t0
+        self.logger.info(
+            f"Finished computing local dendrogram at borders with {len(local_dendrogram_borders._structures_dict)} structures in {t1 - t0:.2e}s"
+        )
+
+        for structure in local_dendrogram_borders.trunk:
+            local_dendrogram.trunk.append(structure)
+
         return local_dendrogram
 
     def compute_local_dendrogram(self, **kwargs):
@@ -414,6 +441,7 @@ class DistributedDendrogramV3(Dendrogram):
                 f"Merging structure with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} with {len(adjacent_structures)} adjacent structures: {[me.idx for me in adjacent_structures]}."
             )
 
+            # TODO: I don't think this part is needed anymore
             # check if we need to break up some more in order to capture all possible local minima
             adjacent_structures_peak = self.get_adjacent_structures(
                 to_merge, merged_structures, self.index_map, peak=True
