@@ -194,9 +194,12 @@ def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix):
 
 if __name__ == "__main__":
     import logging
+    import heat as ht
 
-    logging.basicConfig(level=logging.INFO)
+    if ht.comm.rank == 0:
+        logging.basicConfig(level=logging.INFO)
 
     # test_1D_v3_pseudo_parallel(2, 32, 6, 0.0, 0.0)
-    test_1D_v3_pseudo_parallel(1, 32, 6, 0.0, 0.0)
-    # test_2D_v3_pseudo_parallel(4, 32, 3, 0, 0, 0)
+    # test_1D_v3_pseudo_parallel(2, 33, 0, 0.0, 0.0)
+    # test_1D_v3(2, 33, 0, 0.0, 0.0)
+    test_2D_v3_pseudo_parallel(4, 32, 3, 0, 0, 0)
