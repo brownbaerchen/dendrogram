@@ -167,7 +167,7 @@ def test_2D_save_and_load(mpi_ranks):
         compare_dendrograms(compare_to, dendrogram)
 
 
-@pytest.mark.parametrize("ntasks", [1])  # , 2, 4])
+@pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("min_value", [2])
 @pytest.mark.parametrize("min_delta", [0])  # , 0.02])
 @pytest.mark.parametrize("min_npix", [0])  # , 4])
@@ -201,6 +201,6 @@ if __name__ == "__main__":
 
     # test_1D_v3_pseudo_parallel(2, 32, 6, 0.0, 0.0)
     # test_1D_v3_pseudo_parallel(2, 33, 0, 0.0, 0.0)
-    # test_1D_v3(2, 33, 0, 0.0, 0.0)
+    test_1D_v3(2, 33, 0, 0.0, 0.0)
     # test_2D_v3_pseudo_parallel(4, 32, 3, 0, 0, 0)
-    test_example_pseudo_parallel(2, 2, 0, 0)
+    # test_example_pseudo_parallel(2, 2, 0, 0)
