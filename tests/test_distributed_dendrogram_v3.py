@@ -8,11 +8,11 @@ from dendro.utils import compare_dendrograms
 
 
 @pytest.mark.parametrize("ntasks", [1, 2, 4, 16])
-@pytest.mark.parametrize("res", [32, 33, 64])
-@pytest.mark.parametrize("min_npix", [0, 6, 23])
-@pytest.mark.parametrize("min_delta", [0, 0.1, 0.5])
+@pytest.mark.parametrize("res", [32, 33, 64, 256])
+@pytest.mark.parametrize("min_npix", [0, 2, 6, 23])
+@pytest.mark.parametrize("min_delta", [0, 2e-2, 0.1, 0.5])
 @pytest.mark.parametrize("min_value", ["min", 0.2])
-def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value):
+def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show=False):
     from dendro.utils import get_1d_data
 
     x, data = get_1d_data(res)
@@ -50,7 +50,7 @@ def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value):
     ]
 
     local_dendrograms = (
-        DistributedDendrogramV3.compute_local_dendrogram_pseudo_parallel(
+        DistributedDendrogramV3().compute_local_dendrogram_pseudo_parallel(
             ntasks=ntasks, **kwargs
         )
     )
@@ -60,7 +60,8 @@ def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value):
     plot_astrodendro_leaves(
         axs_bottom[1], x.numpy(), data.numpy(), reference_dendrogram.trunk
     )
-    # plt.show()
+    if show:
+        plt.show()
 
     compare_dendrograms(reference_dendrogram, dendrogram)
 
@@ -167,11 +168,11 @@ def test_2D_save_and_load(mpi_ranks):
         compare_dendrograms(compare_to, dendrogram)
 
 
-@pytest.mark.parametrize("ntasks", [1])  # , 2, 4])
+@pytest.mark.parametrize("ntasks", [1, 2])  # , 2, 4])
 @pytest.mark.parametrize("min_value", [2])
 @pytest.mark.parametrize("min_delta", [0])  # , 0.02])
 @pytest.mark.parametrize("min_npix", [0])  # , 4])
-def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix):
+def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix, plot=False):
     from astropy.io.fits import getdata
     import astrodendro
     import numpy as np
@@ -189,6 +190,52 @@ def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix):
 
     d_ref = astrodendro.Dendrogram.compute(data, **kwargs)
     d = DistributedDendrogramV3.compute_pseudo_parallel(data, ntasks, **kwargs)
+
+    def ting(d_ref, d):
+        for idx_ref in np.unique(d_ref.index_map):
+            if idx_ref < 0:
+                continue
+
+            idx = d.index_map[*[me[0] for me in np.nonzero(d_ref.index_map == idx_ref)]]
+
+            struct_ref = d_ref._structures_dict[idx_ref]
+            struct = d._structures_dict[idx]
+
+            indices = np.sort(np.array(struct._indices).flatten())
+            indices_ref = np.sort(np.array(struct_ref._indices).flatten())
+
+            structs_equal = len(indices) == len(indices_ref)
+            if structs_equal:
+                structs_equal = np.allclose(indices, indices_ref)
+            if not structs_equal:
+                import matplotlib.pyplot as plt
+
+                v = np.zeros_like(d.index_map)
+                print(np.unique(v, return_counts=True))
+                v[*(np.array(struct._indices)).T] += 1
+                print(np.unique(v, return_counts=True))
+                v[*(np.array(struct_ref._indices)).T] -= -1
+                print(np.unique(v, return_counts=True))
+                breakpoint()
+
+                fig, axs = plt.subplots(1, 3, sharex=True, sharey=True, figsize=(9, 3))
+                axs[0].contour(v, levels=[0.5, 1.5], colors=["black", "orange"])
+                d_ref.plotter().plot_contour(axs[1], structure=struct_ref)
+                d.plotter().plot_contour(axs[2], structure=struct)
+                plt.show()
+
+    ting(d_ref, d)
+
+    if plot:
+        import matplotlib.pyplot as plt
+
+        fig, axs = plt.subplots(1, 2, sharex=True, sharey=True)
+        d_ref.plotter().plot_contour(axs[0])
+        d.plotter().plot_contour(axs[1])
+        fig, axs = plt.subplots(1, 2, sharex=True, sharey=True)
+        d_ref.plotter().plot_tree(axs[0])
+        d.plotter().plot_tree(axs[1])
+        plt.show()
     compare_dendrograms(d_ref, d)
 
 
@@ -198,4 +245,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # test_1D_v3_pseudo_parallel(2, 32, 6, 0.0, 0.0)
-    test_1D_v3_pseudo_parallel(16, 32, 0, 0.0, 0.2)
+    # test_1D_v3_pseudo_parallel(16, 32, 0, 0.0, 0.2, show=True)
+    test_example_pseudo_parallel(
+        ntasks=2, min_value=2, min_delta=0, min_npix=0, plot=True
+    )
