@@ -83,14 +83,66 @@ class DistributedDendrogramV3(Dendrogram):
             f"Finished making compatible with astrodendro after {t1 - t0:.2e}s"
         )
 
-    def _compute_single_local_dendrogram(self, local_data, **kwargs):
+    def _compute_single_local_dendrogram(self, local_data, split_dim=0, **kwargs):
+
         t0 = perf_counter()
         local_dendrogram = Dendrogram.compute(local_data, **kwargs)
         t1 = perf_counter()
         self.time_local_dendrogram = t1 - t0
         self.logger.info(
-            f"Finished computing local dendrogram with {len(local_dendrogram._structures_dict)} structures after {t1 - t0:.2e}s"
+            f"Finished computing local dendrogram with {len(local_dendrogram._structures_dict)} structures in {t1 - t0:.2e}s"
         )
+
+        len_before_border_removal = len(local_dendrogram._structures_dict)
+        t0 = perf_counter()
+        for i in [split_dim]:
+            slices = [slice(None) for _ in range(local_data.ndim)]
+            for j in [0, local_data.shape[i] - 1]:
+                slices[i] = j
+                structure_indices = np.unique(
+                    np.atleast_1d(local_dendrogram.index_map[*slices]).flatten()
+                )
+                for structure in [
+                    local_dendrogram._structures_dict[idx]
+                    for idx in structure_indices
+                    if idx > 0
+                ]:
+                    structure._indices = np.array(structure._indices)
+                    structure._values = np.array(structure._values)
+
+                    if len(structure._values) == 1:
+                        continue
+
+                    mask = structure._indices[:, i] == j
+
+                    if np.all(mask) or not np.any(mask):
+                        continue
+
+                    nz = np.nonzero(mask)
+                    from astrodendro.structure import Structure as astrodendro_structure
+
+                    for k in nz[0]:
+                        new_structure = astrodendro_structure(
+                            indices=[structure._indices[k]],
+                            values=list([structure._values[k]]),
+                            dendrogram=local_dendrogram,
+                            idx=len(local_dendrogram._structures_dict),
+                        )
+                        local_dendrogram._structures_dict[new_structure.idx] = (
+                            new_structure
+                        )
+                        local_dendrogram.trunk.append(new_structure)
+
+                    structure._indices = list(structure._indices[~mask])
+                    structure._values = list(structure._values[~mask])
+                    structure._vmin = np.min(structure._values)
+                    structure._vmax = np.max(structure._values)
+
+        t1 = perf_counter()
+        self.logger.info(
+            f"Isolated {len(local_dendrogram._structures_dict) - len_before_border_removal} border structures in {t1 - t0:.2e}s"
+        )
+
         return local_dendrogram
 
     def compute_local_dendrogram(self, **kwargs):
@@ -101,7 +153,7 @@ class DistributedDendrogramV3(Dendrogram):
             f"Start computing local dendrogram with local data of shape {data.lshape}"
         )
         local_dendrogram = self._compute_single_local_dendrogram(
-            data.larray.numpy(), **kwargs
+            data.larray.numpy(), split_dim=data.split, **kwargs
         )
 
         self.logger.info("Adding offsets to structures")
@@ -413,19 +465,6 @@ class DistributedDendrogramV3(Dendrogram):
             self.logger.info(
                 f"Merging structure with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} with {len(adjacent_structures)} adjacent structures: {[me.idx for me in adjacent_structures]}."
             )
-
-            # check if we need to break up some more in order to capture all possible local minima
-            adjacent_structures_peak = self.get_adjacent_structures(
-                to_merge, merged_structures, self.index_map, peak=True
-            )
-            if len(adjacent_structures_peak) < len(adjacent_structures):
-                to_merge, bottom_part = self.split_structure(
-                    to_merge,
-                    to_merge._vmin + 10 * np.finfo(to_merge._vmax).eps,
-                    structures,
-                )
-                structures = self.insert_structure(structures, bottom_part)
-                adjacent_structures = adjacent_structures_peak
 
             # split structures if needed
             to_merge, adjacent_structures, structures = self.split_adjacent_structures(
