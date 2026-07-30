@@ -221,15 +221,21 @@ def plot():
 
 
 def visualize_dendrogram():
-    raise NotImplementedError()
-    # from astrodendro import Dendrogram
+    from astrodendro import Dendrogram
 
-    # d_v3 = Dendrogram.load_from(
-    #     "/Users/thomasbaumann/Documents/repositories/dendrogram/speedup_studies//timing_data/OGHRES-dendrogram-v3-4tasks.fits"
-    # )
-    # d_astrodendro = Dendrogram.load_from(
-    #     "/Users/thomasbaumann/Documents/repositories/dendrogram/speedup_studies//timing_data/OGHRES-dendrogram-astrodendro-1tasks.fits"
-    # )
+    d_v3 = Dendrogram.load_from(
+        "/Users/thomasbaumann/Documents/repositories/dendrogram/speedup_studies//timing_data/OGHRES-dendrogram-v3-4tasks.fits"
+    )
+    d_astrodendro = Dendrogram.load_from(
+        "/Users/thomasbaumann/Documents/repositories/dendrogram/speedup_studies//timing_data/OGHRES-dendrogram-astrodendro-1tasks.fits"
+    )
+    import matplotlib.pyplot as plt
+
+    fig, axs = plt.subplots(1, 2, sharex=True, sharey=True)
+    d_astrodendro.plotter().plot_tree(axs[0])
+    d_v3.plotter().plot_tree(axs[1])
+    plt.show()
+    # compare_dendrograms(d_astrodendro, d_v3)
 
 
 if __name__ == "__main__":
