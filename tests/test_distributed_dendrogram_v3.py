@@ -216,13 +216,13 @@ def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix, plot=Fa
                 print(np.unique(v, return_counts=True))
                 v[*(np.array(struct_ref._indices)).T] -= -1
                 print(np.unique(v, return_counts=True))
-                breakpoint()
 
                 fig, axs = plt.subplots(1, 3, sharex=True, sharey=True, figsize=(9, 3))
                 axs[0].contour(v, levels=[0.5, 1.5], colors=["black", "orange"])
                 d_ref.plotter().plot_contour(axs[1], structure=struct_ref)
                 d.plotter().plot_contour(axs[2], structure=struct)
-                plt.show()
+                plt.pause(1e-9)
+                breakpoint()
 
     ting(d_ref, d)
 
@@ -241,8 +241,10 @@ def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix, plot=Fa
 
 if __name__ == "__main__":
     import logging
+    import heat as ht
 
-    logging.basicConfig(level=logging.INFO)
+    if ht.comm.rank == 0:
+        logging.basicConfig(level=logging.INFO)
 
     # test_1D_v3_pseudo_parallel(2, 32, 6, 0.0, 0.0)
     # test_1D_v3_pseudo_parallel(16, 32, 0, 0.0, 0.2, show=True)
