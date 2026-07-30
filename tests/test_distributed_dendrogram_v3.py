@@ -50,7 +50,7 @@ def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value):
     ]
 
     local_dendrograms = (
-        DistributedDendrogramV3.compute_local_dendrogram_pseudo_parallel(
+        DistributedDendrogramV3().compute_local_dendrogram_pseudo_parallel(
             ntasks=ntasks, **kwargs
         )
     )

@@ -119,8 +119,7 @@ class DistributedDendrogramV3(Dendrogram):
 
         return local_dendrogram
 
-    @staticmethod
-    def compute_local_dendrogram_pseudo_parallel(data, ntasks, **kwargs):
+    def compute_local_dendrogram_pseudo_parallel(self, data, ntasks, **kwargs):
         elements_per_task = data.shape[0] // ntasks
         local_slices = [
             slice(i * elements_per_task, (i + 1) * elements_per_task)
