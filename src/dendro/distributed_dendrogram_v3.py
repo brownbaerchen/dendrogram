@@ -113,6 +113,32 @@ class DistributedDendrogramV3(Dendrogram):
 
         return local_dendrogram
 
+    @staticmethod
+    def compute_local_dendrogram_pseudo_parallel(data, ntasks, **kwargs):
+        elements_per_task = data.shape[0] // ntasks
+        local_slices = [
+            slice(i * elements_per_task, (i + 1) * elements_per_task)
+            for i in range(ntasks)
+        ]
+        local_slices[-1] = slice(local_slices[-1].start, None)
+
+        local_dendrograms = [
+            Dendrogram.compute(
+                np.array(data[s]),
+                min_value=kwargs.get("min_value", "min"),
+                min_npix=kwargs.get("min_npix", 0) // ntasks,
+            )
+            for s in local_slices
+        ]
+
+        for i, dendrogram in enumerate(local_dendrograms):
+            for structure in dendrogram.all_structures:
+                offset = np.zeros((1, data.ndim), int)
+                offset[:, 0] = local_slices[i].start
+                structure._indices = np.array(structure._indices) + offset
+
+        return local_dendrograms
+
     def communicate_structures(self, local_dendrogram):
         self.logger.info(
             f"Starting to communicate {len(local_dendrogram)} local structures"
@@ -139,42 +165,6 @@ class DistributedDendrogramV3(Dendrogram):
         t1 = perf_counter()
         self.logger.info(f"Finished communicating structures in {t1 - t0:.2e}s")
         return structures
-
-    @staticmethod
-    def compute_local_dendrogram_pseudo_parallel(data, ntasks, **kwargs):
-        elements_per_task = data.shape[0] // ntasks
-        local_slices = [
-            slice(i * elements_per_task, (i + 1) * elements_per_task)
-            for i in range(ntasks)
-        ]
-        local_slices[-1] = slice(local_slices[-1].start, None)
-
-        local_dendrograms = [
-            Dendrogram.compute(
-                np.array(data[s]),
-                min_value=kwargs.get("min_value", "min"),
-                min_npix=kwargs.get("min_npix", 0) // ntasks,
-            )
-            for s in local_slices
-        ]
-
-        # empty_dendrograms = [
-        #     i for i, d in enumerate(local_dendrograms) if len(d.trunk) == 0
-        # ]
-        # if 0 < len(empty_dendrograms) < len(local_dendrograms):
-        #     for i in empty_dendrograms:
-        #         local_dendrograms[i] = Dendrogram.compute(
-        #             np.array(data[local_slices[i]]),
-        #             min_delta=np.ptp(data[local_slices[i]]),
-        #         )
-
-        for i, dendrogram in enumerate(local_dendrograms):
-            for structure in dendrogram.all_structures:
-                offset = np.zeros((1, data.ndim), int)
-                offset[:, 0] = local_slices[i].start
-                structure._indices = np.array(structure._indices) + offset
-
-        return local_dendrograms
 
     @staticmethod
     def compute_pseudo_parallel(data, ntasks, min_delta=0, min_npix=0, min_value="min"):
