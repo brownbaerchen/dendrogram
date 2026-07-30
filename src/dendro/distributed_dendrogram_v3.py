@@ -93,6 +93,7 @@ class DistributedDendrogramV3(Dendrogram):
             f"Finished computing local dendrogram with {len(local_dendrogram._structures_dict)} structures in {t1 - t0:.2e}s"
         )
 
+        len_before_border_removal = len(local_dendrogram._structures_dict)
         t0 = perf_counter()
         for i in range(local_data.ndim):
             slices = [slice(None) for _ in range(local_data.ndim)]
@@ -115,22 +116,30 @@ class DistributedDendrogramV3(Dendrogram):
                     if np.all(mask) or not np.any(mask):
                         continue
 
-                    new_structure = Structure(
-                        indices=structure._indices[mask],
-                        values=structure._values[mask],
-                        dendrogram=local_dendrogram,
-                        idx=len(local_dendrogram._structures_dict),
-                    )
-                    local_dendrogram._structures_dict[new_structure.idx] = new_structure
+                    nz = np.nonzero(mask)
+                    from astrodendro.structure import Structure as astrodendro_structure
 
-                    structure._indices = structure._indices[~mask]
-                    structure._values = structure._values[~mask]
+                    for k in nz[0]:
+                        new_structure = astrodendro_structure(
+                            indices=[structure._indices[k]],
+                            values=list([structure._values[k]]),
+                            dendrogram=local_dendrogram,
+                            idx=len(local_dendrogram._structures_dict),
+                        )
+                        local_dendrogram._structures_dict[new_structure.idx] = (
+                            new_structure
+                        )
+                        local_dendrogram.trunk.append(new_structure)
+
+                    structure._indices = list(structure._indices[~mask])
+                    structure._values = list(structure._values[~mask])
                     structure._vmin = np.min(structure._values)
                     structure._vmax = np.max(structure._values)
 
-                    local_dendrogram.trunk.append(new_structure)
         t1 = perf_counter()
-        self.logger.info(f"Isolating border structures in {t1 - t0:.2e}s")
+        self.logger.info(
+            f"Isolated {len(local_dendrogram._structures_dict) - len_before_border_removal} border structures in {t1 - t0:.2e}s"
+        )
 
         return local_dendrogram
 
