@@ -128,11 +128,7 @@ class DistributedDendrogramV3(Dendrogram):
         local_slices[-1] = slice(local_slices[-1].start, None)
 
         local_dendrograms = [
-            Dendrogram.compute(
-                np.array(data[s]),
-                min_value=kwargs.get("min_value", "min"),
-                min_npix=kwargs.get("min_npix", 0) // ntasks,
-            )
+            self._compute_single_local_dendrogram(np.array(data[s]), **kwargs)
             for s in local_slices
         ]
 
@@ -180,8 +176,7 @@ class DistributedDendrogramV3(Dendrogram):
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
             data=self.data,
             ntasks=ntasks,
-            min_delta=min_delta,
-            min_npix=min_npix,
+            min_npix=min_npix // ntasks,
             min_value=min_value,
         )
 
