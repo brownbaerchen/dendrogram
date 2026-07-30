@@ -100,7 +100,9 @@ class DistributedDendrogramV3(Dendrogram):
                 slices[i] = j
                 structure_indices = np.atleast_1d(local_dendrogram.index_map[*slices])
                 for structure in [
-                    local_dendrogram._structures_dict[idx] for idx in structure_indices
+                    local_dendrogram._structures_dict[idx]
+                    for idx in structure_indices
+                    if idx > 0
                 ]:
                     structure._indices = np.array(structure._indices)
                     structure._values = np.array(structure._values)
