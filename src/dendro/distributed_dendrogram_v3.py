@@ -83,6 +83,16 @@ class DistributedDendrogramV3(Dendrogram):
             f"Finished making compatible with astrodendro after {t1 - t0:.2e}s"
         )
 
+    def _compute_single_local_dendrogram(self, local_data, **kwargs):
+        t0 = perf_counter()
+        local_dendrogram = Dendrogram.compute(local_data, **kwargs)
+        t1 = perf_counter()
+        self.time_local_dendrogram = t1 - t0
+        self.logger.info(
+            f"Finished computing local dendrogram with {len(local_dendrogram._structures_dict)} structures after {t1 - t0:.2e}s"
+        )
+        return local_dendrogram
+
     def compute_local_dendrogram(self, **kwargs):
         data = self.data
         comm = data.comm
@@ -90,12 +100,8 @@ class DistributedDendrogramV3(Dendrogram):
         self.logger.info(
             f"Start computing local dendrogram with local data of shape {data.lshape}"
         )
-        t0 = perf_counter()
-        local_dendrogram = Dendrogram.compute(data.larray.numpy(), **kwargs)
-        t1 = perf_counter()
-        self.time_local_dendrogram = t1 - t0
-        self.logger.info(
-            f"Finished computing local dendrogram with {len(local_dendrogram._structures_dict)} structures after {t1 - t0:.2e}s"
+        local_dendrogram = self._compute_single_local_dendrogram(
+            data.larray.numpy(), **kwargs
         )
 
         self.logger.info("Adding offsets to structures")
