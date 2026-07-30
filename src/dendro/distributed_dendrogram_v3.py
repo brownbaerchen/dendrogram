@@ -99,7 +99,9 @@ class DistributedDendrogramV3(Dendrogram):
             slices = [slice(None) for _ in range(local_data.ndim)]
             for j in [0, local_data.shape[i] - 1]:
                 slices[i] = j
-                structure_indices = np.atleast_1d(local_dendrogram.index_map[*slices])
+                structure_indices = np.unique(
+                    np.atleast_1d(local_dendrogram.index_map[*slices]).flatten()
+                )
                 for structure in [
                     local_dendrogram._structures_dict[idx]
                     for idx in structure_indices
