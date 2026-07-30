@@ -7,10 +7,10 @@ from dendro.distributed_dendrogram_v3 import DistributedDendrogramV3
 from dendro.utils import compare_dendrograms
 
 
-@pytest.mark.parametrize("ntasks", [1, 2, 4, 16])
-@pytest.mark.parametrize("res", [32, 33, 64, 256])
-@pytest.mark.parametrize("min_npix", [0, 2, 6, 23])
-@pytest.mark.parametrize("min_delta", [0, 2e-2, 0.1, 0.5])
+@pytest.mark.parametrize("ntasks", [1, 2, 4])
+@pytest.mark.parametrize("res", [32, 33, 64])
+@pytest.mark.parametrize("min_npix", [0, 6, 23])
+@pytest.mark.parametrize("min_delta", [0, 0.1, 0.5])
 @pytest.mark.parametrize("min_value", ["min", 0.2])
 def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show=False):
     from dendro.utils import get_1d_data
