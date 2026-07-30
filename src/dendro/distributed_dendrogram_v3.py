@@ -464,20 +464,6 @@ class DistributedDendrogramV3(Dendrogram):
                 f"Merging structure with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} with {len(adjacent_structures)} adjacent structures: {[me.idx for me in adjacent_structures]}."
             )
 
-            # TODO: I don't think this part is needed anymore
-            # check if we need to break up some more in order to capture all possible local minima
-            adjacent_structures_peak = self.get_adjacent_structures(
-                to_merge, merged_structures, self.index_map, peak=True
-            )
-            if len(adjacent_structures_peak) < len(adjacent_structures):
-                to_merge, bottom_part = self.split_structure(
-                    to_merge,
-                    to_merge._vmin + 10 * np.finfo(to_merge._vmax).eps,
-                    structures,
-                )
-                structures = self.insert_structure(structures, bottom_part)
-                adjacent_structures = adjacent_structures_peak
-
             # split structures if needed
             to_merge, adjacent_structures, structures = self.split_adjacent_structures(
                 to_merge, adjacent_structures, structures
