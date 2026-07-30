@@ -168,10 +168,10 @@ def test_2D_save_and_load(mpi_ranks):
         compare_dendrograms(compare_to, dendrogram)
 
 
-@pytest.mark.parametrize("ntasks", [1, 2])  # , 2, 4])
+@pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("min_value", [2])
-@pytest.mark.parametrize("min_delta", [0])  # , 0.02])
-@pytest.mark.parametrize("min_npix", [0])  # , 4])
+@pytest.mark.parametrize("min_delta", [0, 1])
+@pytest.mark.parametrize("min_npix", [0])  # 10
 def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix, plot=False):
     from astropy.io.fits import getdata
     import astrodendro
