@@ -102,16 +102,18 @@ class DistributedDendrogramV3(Dendrogram):
                 structure_indices = np.unique(
                     np.atleast_1d(local_dendrogram.index_map[*slices]).flatten()
                 )
+
+                # Split off value at boundary
                 for structure in [
                     local_dendrogram._structures_dict[idx]
                     for idx in structure_indices
                     if idx >= 0
                 ]:
-                    structure._indices = np.array(structure._indices)
-                    structure._values = np.array(structure._values)
-
                     if len(structure._values) == 1:
                         continue
+
+                    structure._indices = np.array(structure._indices)
+                    structure._values = np.array(structure._values)
 
                     mask = structure._indices[:, i] == j
 
@@ -451,7 +453,7 @@ class DistributedDendrogramV3(Dendrogram):
         while len(structures) > 0:
             self._iterations += 1
             self.logger.info(
-                f"--- Iteration {self._iterations}. Merged {len(merged_structures)} / {len(structures) + len(merged_structures)}."
+                f"--- Iteration {self._iterations}. Merged {len(merged_structures)}, {len(structures)} left."
             )
 
             to_merge = structures.pop(0)
