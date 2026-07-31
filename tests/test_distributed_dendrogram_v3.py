@@ -10,7 +10,7 @@ from dendro.utils import compare_dendrograms
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("res", [32, 33, 64])
 @pytest.mark.parametrize(
-    "min_npix", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 6, 23]
+    "min_npix", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 23]
 )
 @pytest.mark.parametrize("min_delta", [0, 0.1, 0.5])
 @pytest.mark.parametrize("min_value", ["min", 0.2])
@@ -31,38 +31,40 @@ def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show
     )
     reference_dendrogram = Dendrogram.compute(**kwargs)
 
-    import matplotlib.pyplot as plt
-    from matplotlib.gridspec import GridSpec
-
-    from dendro.utils import plot_astrodendro_leaves
-
-    # fig, axs = plt.subplots(2, max([ntasks, 2]))
-    n_top = max([ntasks, 2])
-
-    fig = plt.figure(figsize=(3 * n_top, 6))
-    gs = GridSpec(2, n_top, figure=fig)
-
-    # Top row: one axis per column
-    axs_top = [fig.add_subplot(gs[0, i]) for i in range(n_top)]
-
-    # Bottom row: two axes spanning half the width each
-    axs_bottom = [
-        fig.add_subplot(gs[1, : n_top // 2]),
-        fig.add_subplot(gs[1, n_top // 2 :]),
-    ]
-
-    local_dendrograms = (
-        DistributedDendrogramV3().compute_local_dendrogram_pseudo_parallel(
-            ntasks=ntasks, **kwargs
-        )
-    )
-    for i, d in enumerate(local_dendrograms):
-        plot_astrodendro_leaves(axs_top[i], x.numpy(), data.numpy(), d.trunk)
-    plot_astrodendro_leaves(axs_bottom[0], x.numpy(), data.numpy(), dendrogram.trunk)
-    plot_astrodendro_leaves(
-        axs_bottom[1], x.numpy(), data.numpy(), reference_dendrogram.trunk
-    )
     if show:
+        import matplotlib.pyplot as plt
+        from matplotlib.gridspec import GridSpec
+
+        from dendro.utils import plot_astrodendro_leaves
+
+        # fig, axs = plt.subplots(2, max([ntasks, 2]))
+        n_top = max([ntasks, 2])
+
+        fig = plt.figure(figsize=(3 * n_top, 6))
+        gs = GridSpec(2, n_top, figure=fig)
+
+        # Top row: one axis per column
+        axs_top = [fig.add_subplot(gs[0, i]) for i in range(n_top)]
+
+        # Bottom row: two axes spanning half the width each
+        axs_bottom = [
+            fig.add_subplot(gs[1, : n_top // 2]),
+            fig.add_subplot(gs[1, n_top // 2 :]),
+        ]
+
+        local_dendrograms = (
+            DistributedDendrogramV3().compute_local_dendrogram_pseudo_parallel(
+                ntasks=ntasks, **kwargs
+            )
+        )
+        for i, d in enumerate(local_dendrograms):
+            plot_astrodendro_leaves(axs_top[i], x.numpy(), data.numpy(), d.trunk)
+        plot_astrodendro_leaves(
+            axs_bottom[0], x.numpy(), data.numpy(), dendrogram.trunk
+        )
+        plot_astrodendro_leaves(
+            axs_bottom[1], x.numpy(), data.numpy(), reference_dendrogram.trunk
+        )
         plt.show()
 
     compare_dendrograms(reference_dendrogram, dendrogram)
@@ -203,8 +205,9 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)
 
     # test_1D_v3_pseudo_parallel(2, 32, 6, 0.0, 0.0, show=True)
+    test_1D_v3_pseudo_parallel(4, 32, 6, 0.0, 0.2, show=True)
     # test_1D_v3_pseudo_parallel(4, 32, 2, 0.0, 'min', show=True)
     # test_1D_v3_pseudo_parallel(2, 64, 10, 0.0, 0.20, show=True)
     # test_1D_v3(2, 33, 0, 0.0, 0.0)
     # test_2D_v3_pseudo_parallel(4, 32, 3, 0, 0, 0)
-    test_example_pseudo_parallel(2, 2, 1, 10)
+    # test_example_pseudo_parallel(2, 2, 1, 10)

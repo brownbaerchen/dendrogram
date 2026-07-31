@@ -94,6 +94,8 @@ class DistributedDendrogramV3(Dendrogram):
         )
 
         min_npix = kwargs.get("min_npix", 0)
+        min_value = kwargs.get("min_value", -np.inf)
+        min_value = -np.inf if min_value == "min" else min_value
 
         len_before_border_removal = len(local_dendrogram._structures_dict)
         t0 = perf_counter()
@@ -117,7 +119,7 @@ class DistributedDendrogramV3(Dendrogram):
                     structure._indices = np.array(structure._indices)
                     structure._values = np.array(structure._values)
 
-                    mask = structure._indices[:, i] == j
+                    mask = structure._indices[:, i] != j
 
                     if np.all(mask) or not np.any(mask):
                         continue
@@ -146,13 +148,17 @@ class DistributedDendrogramV3(Dendrogram):
 
                 # add values at boundary that are excluded due to merging rules
                 if min_npix > 0 and -1 in structure_indices:
-                    slices[i] = slice(0, min_npix) if j == 0 else slice(j - min_npix, j)
+                    slices[i] = (
+                        slice(0, min_npix)
+                        if j == 0
+                        else slice(max([min_npix, j - min_npix]), j + 1)
+                    )
                     nz = np.nonzero(local_dendrogram.index_map[*slices] == -1)
                     for m in range(len(nz[0])):
                         coord = [me[m] for me in nz]
                         if j != 0:
-                            coord[i] += j - min_npix
-                        if local_data[*coord] >= kwargs.get("min_value", -np.inf):
+                            coord[i] += slices[i].start
+                        if local_data[*coord] >= min_value:
                             new_structure = Structure(
                                 indices=coord,
                                 values=[local_data[*coord]],
@@ -482,7 +488,7 @@ class DistributedDendrogramV3(Dendrogram):
         while len(structures) > 0:
             self._iterations += 1
             self.logger.info(
-                f"--- Iteration {self._iterations}. Merged {len(merged_structures)} / {len(structures) + len(merged_structures)}."
+                f"--- Iteration {self._iterations}. Merged {len(merged_structures)}, {len(structures)} left."
             )
 
             to_merge = structures.pop(0)
