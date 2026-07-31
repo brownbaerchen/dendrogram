@@ -205,7 +205,7 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)
 
     # test_1D_v3_pseudo_parallel(2, 32, 6, 0.0, 0.0, show=True)
-    test_1D_v3_pseudo_parallel(4, 32, 6, 0.0, 0.2, show=True)
+    test_1D_v3_pseudo_parallel(4, 32, 9, 0.0, 0.0, show=True)
     # test_1D_v3_pseudo_parallel(4, 32, 2, 0.0, 'min', show=True)
     # test_1D_v3_pseudo_parallel(2, 64, 10, 0.0, 0.20, show=True)
     # test_1D_v3(2, 33, 0, 0.0, 0.0)
