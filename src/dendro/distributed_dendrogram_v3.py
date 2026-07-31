@@ -43,7 +43,7 @@ class DistributedDendrogramV3(Dendrogram):
         #     return Dendrogram.compute(data.numpy(), **kwargs)
 
         local_dendrogram = self.compute_local_dendrogram(
-            min_npix=min_npix,
+            min_npix=min_npix // 2,
             min_value=min_value,
             # min_delta=min_delta,
             is_independent=is_independent,
@@ -264,7 +264,7 @@ class DistributedDendrogramV3(Dendrogram):
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
             data=self.data,
             ntasks=ntasks,
-            min_npix=min_npix,
+            min_npix=min_npix // 2,
             min_value=min_value,
         )
 
