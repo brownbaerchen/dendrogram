@@ -126,10 +126,9 @@ class DistributedDendrogramV3(Dendrogram):
                         continue
 
                     nz = np.nonzero(mask)
-                    from astrodendro.structure import Structure as astrodendro_structure
 
                     for k in nz[0]:
-                        new_structure = astrodendro_structure(
+                        new_structure = Structure(
                             indices=[structure._indices[k]],
                             values=list([structure._values[k]]),
                             dendrogram=local_dendrogram,
