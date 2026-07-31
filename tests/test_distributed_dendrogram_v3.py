@@ -9,7 +9,9 @@ from dendro.utils import compare_dendrograms
 
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("res", [32, 33, 64])
-@pytest.mark.parametrize("min_npix", [0, 6, 23])
+@pytest.mark.parametrize(
+    "min_npix", [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 6, 23]
+)
 @pytest.mark.parametrize("min_delta", [0, 0.1, 0.5])
 @pytest.mark.parametrize("min_value", ["min", 0.2])
 def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show=False):
@@ -108,7 +110,7 @@ def test_1D_v3(mpi_ranks, res, min_npix, min_delta, min_value):
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("res", [32, 64])
 @pytest.mark.parametrize("n_peaks", [1, 2, 3, 4])
-@pytest.mark.parametrize("min_npix", [0, 16])
+@pytest.mark.parametrize("min_npix", [0, 2, 7, 9, 16, 2000])
 @pytest.mark.parametrize("min_delta", [0, 0.1])
 @pytest.mark.parametrize("min_value", ["min", 0.2])
 def test_2D_v3_pseudo_parallel(ntasks, res, n_peaks, min_npix, min_value, min_delta):
@@ -201,7 +203,8 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)
 
     # test_1D_v3_pseudo_parallel(2, 32, 6, 0.0, 0.0, show=True)
-    # test_1D_v3_pseudo_parallel(2, 33, 0, 0.0, 0.0, show=True)
-    test_1D_v3(2, 33, 0, 0.0, 0.0)
+    # test_1D_v3_pseudo_parallel(4, 32, 2, 0.0, 'min', show=True)
+    # test_1D_v3_pseudo_parallel(2, 64, 10, 0.0, 0.20, show=True)
+    # test_1D_v3(2, 33, 0, 0.0, 0.0)
     # test_2D_v3_pseudo_parallel(4, 32, 3, 0, 0, 0)
-    # test_example_pseudo_parallel(2, 2, 0, 0)
+    test_example_pseudo_parallel(2, 2, 1, 10)

@@ -93,6 +93,8 @@ class DistributedDendrogramV3(Dendrogram):
             f"Finished computing local dendrogram with {len(local_dendrogram._structures_dict)} structures in {t1 - t0:.2e}s"
         )
 
+        min_npix = kwargs.get("min_npix", 0)
+
         len_before_border_removal = len(local_dendrogram._structures_dict)
         t0 = perf_counter()
         for i in [split_dim]:
@@ -102,16 +104,21 @@ class DistributedDendrogramV3(Dendrogram):
                 structure_indices = np.unique(
                     np.atleast_1d(local_dendrogram.index_map[*slices]).flatten()
                 )
+
+                # TODO: remove astrodendro structure
+
+                # Split off value at boundary
+                print(structure_indices)
                 for structure in [
                     local_dendrogram._structures_dict[idx]
                     for idx in structure_indices
-                    if idx > 0
+                    if idx >= 0
                 ]:
-                    structure._indices = np.array(structure._indices)
-                    structure._values = np.array(structure._values)
-
                     if len(structure._values) == 1:
                         continue
+
+                    structure._indices = np.array(structure._indices)
+                    structure._values = np.array(structure._values)
 
                     mask = structure._indices[:, i] == j
 
@@ -138,12 +145,40 @@ class DistributedDendrogramV3(Dendrogram):
                     structure._vmin = np.min(structure._values)
                     structure._vmax = np.max(structure._values)
 
+                # TODO: add boundary values back in that may have been excluded because of merging rules
+                # TODO: add min_delta to local dendrogram computation
+                # TODO: use full min_npix
+
+                # add values at boundary that are excluded due to merging rules
+                if min_npix > 0 and -1 in structure_indices:
+                    slices[i] = slice(0, min_npix) if j == 0 else slice(j - min_npix, j)
+                    nz = np.nonzero(local_dendrogram.index_map[*slices] == -1)
+                    for m in range(len(nz[0])):
+                        coord = [me[m] for me in nz]
+                        if j != 0:
+                            coord[i] += j - min_npix
+                        if local_data[*coord] >= kwargs.get("min_value", -np.inf):
+                            new_structure = Structure(
+                                indices=coord,
+                                values=[local_data[*coord]],
+                                dendrogram=local_dendrogram,
+                                idx=len(local_dendrogram._structures_dict),
+                            )
+                            self._add_structure_to_dendrogram(
+                                new_structure, local_dendrogram
+                            )
+
         t1 = perf_counter()
         self.logger.info(
             f"Isolated {len(local_dendrogram._structures_dict) - len_before_border_removal} border structures in {t1 - t0:.2e}s"
         )
 
         return local_dendrogram
+
+    @staticmethod
+    def _add_structure_to_dendrogram(structure, dendrogram):
+        dendrogram._structures_dict[structure.idx] = structure
+        dendrogram.trunk.append(structure)
 
     def compute_local_dendrogram(self, **kwargs):
         data = self.data
@@ -228,7 +263,7 @@ class DistributedDendrogramV3(Dendrogram):
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
             data=self.data,
             ntasks=ntasks,
-            min_npix=min_npix // ntasks,
+            min_npix=min_npix,  # // ntasks,
             min_value=min_value,
         )
 
