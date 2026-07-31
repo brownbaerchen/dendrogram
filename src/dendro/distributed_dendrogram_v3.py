@@ -105,7 +105,7 @@ class DistributedDendrogramV3(Dendrogram):
                 for structure in [
                     local_dendrogram._structures_dict[idx]
                     for idx in structure_indices
-                    if idx > 0
+                    if idx >= 0
                 ]:
                     structure._indices = np.array(structure._indices)
                     structure._values = np.array(structure._values)
@@ -119,10 +119,9 @@ class DistributedDendrogramV3(Dendrogram):
                         continue
 
                     nz = np.nonzero(mask)
-                    from astrodendro.structure import Structure as astrodendro_structure
 
                     for k in nz[0]:
-                        new_structure = astrodendro_structure(
+                        new_structure = Structure(
                             indices=[structure._indices[k]],
                             values=list([structure._values[k]]),
                             dendrogram=local_dendrogram,
