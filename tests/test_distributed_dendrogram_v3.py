@@ -29,38 +29,40 @@ def test_1D_v3_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show
     )
     reference_dendrogram = Dendrogram.compute(**kwargs)
 
-    import matplotlib.pyplot as plt
-    from matplotlib.gridspec import GridSpec
-
-    from dendro.utils import plot_astrodendro_leaves
-
-    # fig, axs = plt.subplots(2, max([ntasks, 2]))
-    n_top = max([ntasks, 2])
-
-    fig = plt.figure(figsize=(3 * n_top, 6))
-    gs = GridSpec(2, n_top, figure=fig)
-
-    # Top row: one axis per column
-    axs_top = [fig.add_subplot(gs[0, i]) for i in range(n_top)]
-
-    # Bottom row: two axes spanning half the width each
-    axs_bottom = [
-        fig.add_subplot(gs[1, : n_top // 2]),
-        fig.add_subplot(gs[1, n_top // 2 :]),
-    ]
-
-    local_dendrograms = (
-        DistributedDendrogramV3().compute_local_dendrogram_pseudo_parallel(
-            ntasks=ntasks, **kwargs
-        )
-    )
-    for i, d in enumerate(local_dendrograms):
-        plot_astrodendro_leaves(axs_top[i], x.numpy(), data.numpy(), d.trunk)
-    plot_astrodendro_leaves(axs_bottom[0], x.numpy(), data.numpy(), dendrogram.trunk)
-    plot_astrodendro_leaves(
-        axs_bottom[1], x.numpy(), data.numpy(), reference_dendrogram.trunk
-    )
     if show:
+        import matplotlib.pyplot as plt
+        from matplotlib.gridspec import GridSpec
+
+        from dendro.utils import plot_astrodendro_leaves
+
+        # fig, axs = plt.subplots(2, max([ntasks, 2]))
+        n_top = max([ntasks, 2])
+
+        fig = plt.figure(figsize=(3 * n_top, 6))
+        gs = GridSpec(2, n_top, figure=fig)
+
+        # Top row: one axis per column
+        axs_top = [fig.add_subplot(gs[0, i]) for i in range(n_top)]
+
+        # Bottom row: two axes spanning half the width each
+        axs_bottom = [
+            fig.add_subplot(gs[1, : n_top // 2]),
+            fig.add_subplot(gs[1, n_top // 2 :]),
+        ]
+
+        local_dendrograms = (
+            DistributedDendrogramV3().compute_local_dendrogram_pseudo_parallel(
+                ntasks=ntasks, **kwargs
+            )
+        )
+        for i, d in enumerate(local_dendrograms):
+            plot_astrodendro_leaves(axs_top[i], x.numpy(), data.numpy(), d.trunk)
+        plot_astrodendro_leaves(
+            axs_bottom[0], x.numpy(), data.numpy(), dendrogram.trunk
+        )
+        plot_astrodendro_leaves(
+            axs_bottom[1], x.numpy(), data.numpy(), reference_dendrogram.trunk
+        )
         plt.show()
 
     compare_dendrograms(reference_dendrogram, dendrogram)
