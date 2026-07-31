@@ -105,10 +105,7 @@ class DistributedDendrogramV3(Dendrogram):
                     np.atleast_1d(local_dendrogram.index_map[*slices]).flatten()
                 )
 
-                # TODO: remove astrodendro structure
-
                 # Split off value at boundary
-                print(structure_indices)
                 for structure in [
                     local_dendrogram._structures_dict[idx]
                     for idx in structure_indices
