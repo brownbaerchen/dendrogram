@@ -43,7 +43,7 @@ class DistributedDendrogramV3(Dendrogram):
         #     return Dendrogram.compute(data.numpy(), **kwargs)
 
         local_dendrogram = self.compute_local_dendrogram(
-            min_npix=min_npix // self.comm.size,
+            min_npix=min_npix,
             min_value=min_value,
             # min_delta=min_delta,
             is_independent=is_independent,
@@ -143,7 +143,6 @@ class DistributedDendrogramV3(Dendrogram):
 
                 # TODO: add boundary values back in that may have been excluded because of merging rules
                 # TODO: add min_delta to local dendrogram computation
-                # TODO: use full min_npix
 
                 # add values at boundary that are excluded due to merging rules
                 if min_npix > 0 and -1 in structure_indices:
@@ -259,7 +258,7 @@ class DistributedDendrogramV3(Dendrogram):
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
             data=self.data,
             ntasks=ntasks,
-            min_npix=min_npix,  # // ntasks,
+            min_npix=min_npix,
             min_value=min_value,
         )
 
