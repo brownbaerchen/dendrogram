@@ -149,9 +149,9 @@ class DistributedDendrogramV3(Dendrogram):
                 # add values at boundary that are excluded due to merging rules
                 if min_npix > 0 and -1 in structure_indices:
                     slices[i] = (
-                        slice(0, min_npix)
+                        slice(0, int(np.ceil(min_npix)))
                         if j == 0
-                        else slice(max([min_npix, j - min_npix]), j + 1)
+                        else slice(int(np.floor(max([min_npix, j - min_npix]))), j + 1)
                     )
                     nz = np.nonzero(local_dendrogram.index_map[*slices] == -1)
                     for m in range(len(nz[0])):
