@@ -43,7 +43,7 @@ class DistributedDendrogramV3(Dendrogram):
         #     return Dendrogram.compute(data.numpy(), **kwargs)
 
         local_dendrogram = self.compute_local_dendrogram(
-            min_npix=min_npix // 2,
+            min_npix=min_npix,
             min_value=min_value,
             # min_delta=min_delta,
             is_independent=is_independent,
@@ -147,12 +147,9 @@ class DistributedDendrogramV3(Dendrogram):
                 # TODO: add min_delta to local dendrogram computation
 
                 # add values at boundary that are excluded due to merging rules
-                if min_npix > 0 and -1 in structure_indices:
-                    slices[i] = (
-                        slice(0, int(np.ceil(min_npix)))
-                        if j == 0
-                        else slice(int(np.floor(max([min_npix, j - min_npix]))), j + 1)
-                    )
+                halo = min_npix // 2
+                if halo > 0 and -1 in structure_indices:
+                    slices[i] = slice(0, halo) if j == 0 else slice(halo, j + 1)
                     nz = np.nonzero(local_dendrogram.index_map[*slices] == -1)
                     for m in range(len(nz[0])):
                         coord = [me[m] for me in nz]
@@ -264,7 +261,7 @@ class DistributedDendrogramV3(Dendrogram):
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
             data=self.data,
             ntasks=ntasks,
-            min_npix=min_npix // 2,
+            min_npix=min_npix,
             min_value=min_value,
         )
 
