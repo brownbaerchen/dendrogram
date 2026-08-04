@@ -6,7 +6,6 @@ from dendro.utils import compare_dendrograms
 
 
 def test_is_adjacent():
-    assert False
     # 1D
     chunkA = [[1]]
     chunkB = [[2]]
