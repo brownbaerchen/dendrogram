@@ -1,0 +1,9 @@
+merge_protections:
+  - name: Automerge_rule
+    description: Automerge stuff
+    if: []
+    success_conditions:
+      - check-success = lint
+      - check-success = tests (3.13)
+merge_protections_settings:
+  auto_merge_conditions: true
