@@ -467,13 +467,16 @@ class DistributedDendrogramV5(Dendrogram):
 
             to_merge = structures.pop(0)
 
-            to_merge = self.split_overlapping_structures(
+            to_merge, structures = self.split_overlapping_structures(
                 to_merge, merged_structures, structures
             )
             if to_merge is None:
                 continue
             elif len(structures) > 0 and to_merge._vmax < structures[0]._vmax:
                 structures = self.insert_structure(structures, to_merge)
+                self.logger.info(
+                    "After removing overlap, this is no longer the structure with the highest maximum. Skipping..."
+                )
                 continue
 
             # find adjacent structures
@@ -532,19 +535,33 @@ class DistributedDendrogramV5(Dendrogram):
             to_merge
         )
         for structure in [merged_structures[i] for i in overlapping_structures_indices]:
-            # TODO: split common part from structure and append in structures?
-            mask = np.ones(len(to_merge._values), bool)
+            # TODO: split common part from structure and append in structures!
+            # TODO: vectorize mask computation
+
+            mask = np.empty(len(structure._values), bool)
             for i in range(mask.shape[0]):
-                mask[i] = to_merge._indices[i] not in structure._indices
+                mask[i] = structure._indices[i] not in to_merge._indices
 
             if np.any(mask) and not np.all(mask):
-                to_merge, _ = self.split_structure(to_merge, mask)
+                structure, common_part = self.split_structure(structure, mask)
+                structures = self.insert_structure(structures, common_part)
+                self.index_map[*common_part._indices.T] = -1
             else:
+                common_part = structure
+
+            mask = np.empty(len(to_merge._values), bool)
+            for i in range(mask.shape[0]):
+                mask[i] = to_merge._indices[i] not in common_part._indices
+
+            if not np.any(mask):
                 self.logger.info(
                     "Structure to be merged completely overlaps with existing structures. Skipping..."
                 )
-                return None
-        return to_merge
+                return None, structures
+            else:
+                to_merge, common_part = self.split_structure(to_merge, mask)
+
+        return to_merge, structures
 
     @staticmethod
     def get_adjacent_structure_indices(structure, index_map, peak=False):

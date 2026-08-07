@@ -205,7 +205,7 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logging.basicConfig(level=logging.INFO)
 
-    test_1D_v5_pseudo_parallel(4, 64, 0, 0.0, 0.1, show=True)
+    test_1D_v5_pseudo_parallel(4, 32, 0, 0.0, 0.2, show=True)
     # test_1D_v5_pseudo_parallel(2, 33, 0, 0.0, 0.0, show=True)
     # test_1D_v5(2, 33, 0, 0.0, 0.0)
     # test_2D_v5_pseudo_parallel(4, 32, 3, 0, 0, 0)
