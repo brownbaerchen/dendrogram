@@ -1,34 +1,18 @@
 import heat as ht
 import numpy as np
 from time import perf_counter
-import logging
 
 from astrodendro.dendrogram import Dendrogram, _make_trunk
 from astrodendro import pruning
 
 from dendro.distributed_dendrogram import Structure
+from dendro.distributed_dendrogram_v3 import get_logger
 
 
-def get_logger():
-    class MPIFormatter(logging.Formatter):
-        def format(self, record):
-            record.rank = ht.comm.rank
-            return super().format(record)
-
-    logger = logging.getLogger("Dendrogram")
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(
-            MPIFormatter("[Rank %(rank)3d] %(levelname)s: %(message)s")
-        )
-        logger.addHandler(handler)
-        logger.propagate = False
-    return logger
-
-
-class DistributedDendrogramV3(Dendrogram):
+class DistributedDendrogramV5(Dendrogram):
     wcs = None
     logger = get_logger()
+    halo_size = 0
 
     @staticmethod
     def compute(
@@ -36,7 +20,7 @@ class DistributedDendrogramV3(Dendrogram):
     ):
         assert isinstance(data, ht.DNDarray)
 
-        self = DistributedDendrogramV3()
+        self = DistributedDendrogramV5()
         self.data = data
         self.comm = data.comm
 
@@ -96,57 +80,6 @@ class DistributedDendrogramV3(Dendrogram):
             f"Finished computing local dendrogram with {len(local_dendrogram._structures_dict)} structures in {t1 - t0:.2e}s"
         )
 
-        len_before_border_removal = len(local_dendrogram._structures_dict)
-        t0 = perf_counter()
-        for i in [split_dim]:
-            slices = [slice(None) for _ in range(local_data.ndim)]
-            for j in [0, local_data.shape[i] - 1]:
-                slices[i] = j
-                structure_indices = np.unique(
-                    np.atleast_1d(local_dendrogram.index_map[*slices]).flatten()
-                )
-
-                # Split off value at boundary
-                for structure in [
-                    local_dendrogram._structures_dict[idx]
-                    for idx in structure_indices
-                    if idx >= 0
-                ]:
-                    if len(structure._values) == 1:
-                        continue
-
-                    structure._indices = np.array(structure._indices)
-                    structure._values = np.array(structure._values)
-
-                    mask = structure._indices[:, i] == j
-
-                    if np.all(mask) or not np.any(mask):
-                        continue
-
-                    nz = np.nonzero(mask)
-
-                    for k in nz[0]:
-                        new_structure = Structure(
-                            indices=[structure._indices[k]],
-                            values=list([structure._values[k]]),
-                            dendrogram=local_dendrogram,
-                            idx=len(local_dendrogram._structures_dict),
-                        )
-                        local_dendrogram._structures_dict[new_structure.idx] = (
-                            new_structure
-                        )
-                        local_dendrogram.trunk.append(new_structure)
-
-                    structure._indices = list(structure._indices[~mask])
-                    structure._values = list(structure._values[~mask])
-                    structure._vmin = np.min(structure._values)
-                    structure._vmax = np.max(structure._values)
-
-        t1 = perf_counter()
-        self.logger.info(
-            f"Isolated {len(local_dendrogram._structures_dict) - len_before_border_removal} border structures in {t1 - t0:.2e}s"
-        )
-
         return local_dendrogram
 
     def compute_local_dendrogram(self, **kwargs):
@@ -175,13 +108,22 @@ class DistributedDendrogramV3(Dendrogram):
 
         return local_dendrogram
 
-    def compute_local_dendrogram_pseudo_parallel(self, data, ntasks, **kwargs):
+    def _get_local_slices(self, data, ntasks, halo_size=0):
         elements_per_task = data.shape[0] // ntasks
         local_slices = [
-            slice(i * elements_per_task, (i + 1) * elements_per_task)
+            slice(
+                max([0, i * elements_per_task - halo_size]),
+                min([data.shape[0], (i + 1) * elements_per_task + halo_size]),
+            )
             for i in range(ntasks)
         ]
         local_slices[-1] = slice(local_slices[-1].start, None)
+        return local_slices
+
+    def compute_local_dendrogram_pseudo_parallel(
+        self, data, ntasks, halo_size, **kwargs
+    ):
+        local_slices = self._get_local_slices(data, ntasks, halo_size)
 
         local_dendrograms = [
             self._compute_single_local_dendrogram(np.array(data[s]), **kwargs)
@@ -189,10 +131,19 @@ class DistributedDendrogramV3(Dendrogram):
         ]
 
         for i, dendrogram in enumerate(local_dendrograms):
+            offset = np.zeros((1, data.ndim), int)
+            offset[:, 0] = local_slices[i].start
             for structure in dendrogram.all_structures:
-                offset = np.zeros((1, data.ndim), int)
-                offset[:, 0] = local_slices[i].start
                 structure._indices = np.array(structure._indices) + offset
+
+        local_dendrograms = [
+            self.split_halo_structures(
+                local_dendrogram,
+                left_halo_size=halo_size if i > 0 else 0,
+                right_halo_size=halo_size if i < ntasks - 1 else 0,
+            )
+            for i, local_dendrogram in enumerate(local_dendrograms)
+        ]
 
         return local_dendrograms
 
@@ -223,17 +174,74 @@ class DistributedDendrogramV3(Dendrogram):
         self.logger.info(f"Finished communicating structures in {t1 - t0:.2e}s")
         return structures
 
+    def split_halo_structures(self, local_dendrogram, left_halo_size, right_halo_size):
+        # determine halo slices
+        halo_slices = {}
+
+        left_halo = [slice(None, None) for _ in range(local_dendrogram.index_map.ndim)]
+        left_halo[0] = slice(0, left_halo_size)
+        halo_slices["left"] = left_halo
+
+        right_halo = [slice(None, None) for _ in range(local_dendrogram.index_map.ndim)]
+        right_halo[0] = slice(
+            local_dendrogram.index_map.shape[0] - right_halo_size, None
+        )
+        halo_slices["right"] = right_halo
+
+        # determine offset
+        border_structure_idx = local_dendrogram.index_map[
+            *tuple(0 for _ in range(local_dendrogram.index_map.ndim))
+        ]
+        offset = np.min(
+            local_dendrogram._structures_dict[border_structure_idx]._indices[:, 0]
+        )
+
+        num_structs_pre_splitting = len(local_dendrogram._structures_dict)
+        for side, halo_slice in halo_slices.items():
+            halo_structures = [
+                local_dendrogram._structures_dict[i]
+                for i in np.unique(local_dendrogram.index_map[*halo_slice])
+            ]
+
+            for structure in halo_structures:
+                if side == "left":
+                    mask = structure._indices[:, 0] >= halo_slice[0].stop + offset
+                elif side == "right":
+                    mask = structure._indices[:, 0] < halo_slice[0].start + offset
+                else:
+                    raise ValueError
+
+                assert not np.all(mask)
+
+                if np.any(mask) and not np.all(mask):
+                    # split structure at halo
+                    structure, halo_part = self.split_structure(structure, mask)
+                    halo_part.idx = len(local_dendrogram._structures_dict)
+
+                    # enter the halo part separately into the local dendrogram
+                    local_dendrogram.trunk.append(halo_part)
+                    local_dendrogram._structures_dict[halo_part.idx] = halo_part
+
+        num_structs_post_splitting = len(local_dendrogram._structures_dict)
+        self.logger.info(
+            f"Split off {num_structs_post_splitting - num_structs_pre_splitting} structures from halos with size {left_halo_size} and {right_halo_size}"
+        )
+
+        return local_dendrogram
+
     @staticmethod
     def compute_pseudo_parallel(data, ntasks, min_delta=0, min_npix=0, min_value="min"):
-        self = DistributedDendrogramV3()
+        self = DistributedDendrogramV5()
         self.data = data
         self.params = dict(min_npix=min_npix, min_value=min_value, min_delta=min_delta)
+        self.halo_size = max([data.shape[0] // ntasks // 4, 2 * min_npix])
 
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
             data=self.data,
             ntasks=ntasks,
             min_npix=min_npix // ntasks,
             min_value=min_value,
+            halo_size=self.halo_size,
         )
 
         all_structures = []
@@ -266,14 +274,17 @@ class DistributedDendrogramV3(Dendrogram):
             f"Merged {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} into existing structure {merge_into.idx}, which now has {len(merge_into._values)} values between {merge_into._vmin:.2f} and {merge_into._vmax:.2f}"
         )
 
-    def split_structure(self, structure, split_at, structures):
+    def split_structure(self, structure, split_at):
 
         if not isinstance(structure._values, np.ndarray):
             structure._values = np.array(structure._values)
         if not isinstance(structure._indices, np.ndarray):
             structure._indices = np.array(structure._indices)
 
-        top_mask = structure._values > split_at
+        if np.isscalar(split_at):
+            top_mask = structure._values > split_at
+        else:
+            top_mask = split_at
 
         bottom_part = Structure(
             indices=structure._indices[~top_mask],
@@ -287,9 +298,10 @@ class DistributedDendrogramV3(Dendrogram):
         structure._vmin = np.min(structure._values)
         structure._vmax = np.max(structure._values)
 
-        self.logger.info(
-            f"Split structure {structure.idx} at {split_at:.2f}. Remaining top part has {len(structure._values)} values between {structure._vmin:.2f} and {structure._vmax:.2f} and {len(structure._children)} children, bottom part has {len(bottom_part._values)} values between {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}."
-        )
+        if np.isscalar(split_at):
+            self.logger.info(
+                f"Split structure {structure.idx} at {split_at:.2f}. Remaining top part has {len(structure._values)} values between {structure._vmin:.2f} and {structure._vmax:.2f} and {len(structure._children)} children, bottom part has {len(bottom_part._values)} values between {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}."
+            )
         return structure, bottom_part
 
     @staticmethod
@@ -312,10 +324,10 @@ class DistributedDendrogramV3(Dendrogram):
         elif to_insert._vmax <= structures[-1]._vmax:
             structures.append(to_insert)
         else:
-            structures = DistributedDendrogramV3.insert_structure_within(
+            structures = DistributedDendrogramV5.insert_structure_within(
                 structures, to_insert
             )
-        DistributedDendrogramV3.logger.info(
+        DistributedDendrogramV5.logger.info(
             f"Inserted structure with {len(to_insert._values)} values between {to_insert._vmin:.2f} and {to_insert._vmax:.2f} into list of {len(structures)} remaining structures."
         )
         return structures
@@ -323,21 +335,19 @@ class DistributedDendrogramV3(Dendrogram):
     def split_adjacent_structures(self, to_merge, adjacent_structures, structures):
         for i, adjacent in enumerate(adjacent_structures):
             if to_merge._vmin < adjacent._vmin < to_merge._vmax:
-                to_merge, bottom_part = self.split_structure(
-                    to_merge, adjacent._vmin, structures
-                )
+                to_merge, bottom_part = self.split_structure(to_merge, adjacent._vmin)
                 structures = self.insert_structure(structures, bottom_part)
 
             if adjacent._vmin < to_merge._vmin < adjacent._vmax:
                 adjacent_structures[i], bottom_part = self.split_structure(
-                    adjacent, to_merge._vmin, structures
+                    adjacent, to_merge._vmin
                 )
                 structures = self.insert_structure(structures, bottom_part)
                 self.index_map[*bottom_part._indices.T] = -1
 
             if adjacent._vmin < to_merge._vmax < adjacent._vmax:
                 adjacent_structures[i], bottom_part = self.split_structure(
-                    adjacent, to_merge._vmax, structures
+                    adjacent, to_merge._vmax
                 )
                 structures = self.insert_structure(structures, bottom_part)
                 self.index_map[*bottom_part._indices.T] = -1
@@ -461,6 +471,15 @@ class DistributedDendrogramV3(Dendrogram):
 
             to_merge = structures.pop(0)
 
+            to_merge = self.split_overlapping_structures(
+                to_merge, merged_structures, structures
+            )
+            if to_merge is None:
+                continue
+            elif len(structures) > 0 and to_merge._vmax < structures[0]._vmax:
+                structures = self.insert_structure(structures, to_merge)
+                continue
+
             # find adjacent structures
             adjacent_structures = self.get_adjacent_structures(
                 to_merge, merged_structures, self.index_map
@@ -492,11 +511,11 @@ class DistributedDendrogramV3(Dendrogram):
             # from dendro.utils import plot_astrodendro_leaves
             # import matplotlib.pyplot as plt
             # fig, axs = plt.subplots(1, 2)
-            # plot_astrodendro_leaves(axs[0], np.arange(self.data.shape[0]), self.data, merged_structures)
-            # plot_astrodendro_leaves(axs[1], np.arange(self.data.shape[0]), self.data, structures)
+            # plot_astrodendro_leaves(axs[0], np.arange(self.data.shape[0]), self.data, merged_structures, plot_children=False)
+            # plot_astrodendro_leaves(axs[1], np.arange(self.data.shape[0]), self.data, structures, plot_children=False)
             # plt.pause(1e-9)
             # breakpoint()
-            # fig.clf()
+            # plt.close(fig)
 
         t1 = perf_counter()
         self.time_merge_dendrograms = t1 - t0
@@ -506,6 +525,30 @@ class DistributedDendrogramV3(Dendrogram):
         ]
 
         self.make_output_astrodendro_compatible(is_independent=is_independent)
+
+    def get_overlapping_structures_indices(self, to_merge):
+        indices = np.unique(self.index_map[*(to_merge._indices).T])
+        indices = indices[indices >= 0]
+        return indices
+
+    def split_overlapping_structures(self, to_merge, merged_structures, structures):
+        overlapping_structures_indices = self.get_overlapping_structures_indices(
+            to_merge
+        )
+        for structure in [merged_structures[i] for i in overlapping_structures_indices]:
+            # TODO: split common part from structure and append in structures?
+            mask = np.ones(len(to_merge._values), bool)
+            for i in range(mask.shape[0]):
+                mask[i] = to_merge._indices[i] not in structure._indices
+
+            if np.any(mask) and not np.all(mask):
+                to_merge, _ = self.split_structure(to_merge, mask)
+            else:
+                self.logger.info(
+                    "Structure to be merged completely overlaps with existing structures. Skipping..."
+                )
+                return None
+        return to_merge
 
     @staticmethod
     def get_adjacent_structure_indices(structure, index_map, peak=False):
@@ -527,7 +570,7 @@ class DistributedDendrogramV3(Dendrogram):
     @staticmethod
     def get_adjacent_structures(structure, merged_structures, index_map, peak=False):
         adjacent_structure_indices = (
-            DistributedDendrogramV3.get_adjacent_structure_indices(
+            DistributedDendrogramV5.get_adjacent_structure_indices(
                 structure, index_map, peak=peak
             )
         )

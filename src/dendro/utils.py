@@ -56,8 +56,11 @@ def compare_dendrograms(ref_dendrogram, other_dendrogram):
         assert len(corresponds_to) == 1, (
             f"Structure {structure.idx} in reference dendrogram corresponds to {len(corresponds_to)} structures {[me.idx for me in corresponds_to]} in the merged one"
         )
+        assert len(np.unique(corresponds_to[0]._indices)) == len(
+            corresponds_to[0]._indices
+        ), f"Structure {corresponds_to[0].idx} has non-unique indices"
         assert len(structure._indices) == len(corresponds_to[0]._indices), (
-            "Structures have different lengths"
+            f"Structure {corresponds_to[0].idx} has different length from reference structure {structure.idx}"
         )
         assert np.allclose(
             np.sort(np.array(structure._indices).flatten()),
@@ -65,7 +68,7 @@ def compare_dendrograms(ref_dendrogram, other_dendrogram):
         ), r"Indices don\'t match between merged and reference structure"
 
 
-def plot_astrodendro_leaves(ax, x, data, leaves, level=0):
+def plot_astrodendro_leaves(ax, x, data, leaves, level=0, plot_children=True):
     markers = {0: ".", 1: "x", 2: ">", 3: "o", 4: "<"}
 
     if level == 0:
@@ -77,9 +80,10 @@ def plot_astrodendro_leaves(ax, x, data, leaves, level=0):
             np.array(data)[leaf._indices],
             marker=markers.get(level, "."),
         )
-        plot_astrodendro_leaves(
-            ax=ax, x=x, data=data, leaves=leaf._children, level=level + 1
-        )
+        if plot_children:
+            plot_astrodendro_leaves(
+                ax=ax, x=x, data=data, leaves=leaf._children, level=level + 1
+            )
 
 
 def plot_astrodendro_tree_2D(ax, dendrogram, leaves, _plotter=None):
