@@ -1,5 +1,20 @@
 import heat as ht
 import numpy as np
+import logging
+
+
+def get_logger():
+    class MPIFormatter(logging.Formatter):
+        def format(self, record):
+            record.rank = ht.comm.rank
+            return super().format(record)
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(MPIFormatter("[Rank %(rank)3d] %(levelname)s: %(message)s"))
+    logger = logging.getLogger("Dendrogram")
+    logger.addHandler(handler)
+    logger.propagate = False
+    return logger
 
 
 def get_1d_data(n):
