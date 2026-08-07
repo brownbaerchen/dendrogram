@@ -535,7 +535,6 @@ class DistributedDendrogramV5(Dendrogram):
             to_merge
         )
         for structure in [merged_structures[i] for i in overlapping_structures_indices]:
-            # TODO: split common part from structure and append in structures!
             # TODO: vectorize mask computation
 
             mask = np.empty(len(structure._values), bool)
