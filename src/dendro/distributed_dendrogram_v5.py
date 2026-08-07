@@ -141,6 +141,7 @@ class DistributedDendrogramV5(Dendrogram):
                 local_dendrogram,
                 left_halo_size=halo_size if i > 0 else 0,
                 right_halo_size=halo_size if i < ntasks - 1 else 0,
+                offset=local_slices[i].start,
             )
             for i, local_dendrogram in enumerate(local_dendrograms)
         ]
@@ -174,7 +175,9 @@ class DistributedDendrogramV5(Dendrogram):
         self.logger.info(f"Finished communicating structures in {t1 - t0:.2e}s")
         return structures
 
-    def split_halo_structures(self, local_dendrogram, left_halo_size, right_halo_size):
+    def split_halo_structures(
+        self, local_dendrogram, left_halo_size, right_halo_size, offset
+    ):
         # determine halo slices
         halo_slices = {}
 
@@ -188,19 +191,12 @@ class DistributedDendrogramV5(Dendrogram):
         )
         halo_slices["right"] = right_halo
 
-        # determine offset
-        border_structure_idx = local_dendrogram.index_map[
-            *tuple(0 for _ in range(local_dendrogram.index_map.ndim))
-        ]
-        offset = np.min(
-            local_dendrogram._structures_dict[border_structure_idx]._indices[:, 0]
-        )
-
         num_structs_pre_splitting = len(local_dendrogram._structures_dict)
         for side, halo_slice in halo_slices.items():
             halo_structures = [
                 local_dendrogram._structures_dict[i]
                 for i in np.unique(local_dendrogram.index_map[*halo_slice])
+                if i >= 0
             ]
 
             for structure in halo_structures:
