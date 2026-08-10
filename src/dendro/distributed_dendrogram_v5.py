@@ -569,7 +569,7 @@ class DistributedDendrogramV5(Dendrogram):
             [
                 tuple([0] for _ in range(len(non_contig_idx))),
                 non_contig_idx,
-                tuple([me-1] for me in overlapping_structures_indices.shape),
+                tuple([me - 1] for me in overlapping_structures_indices.shape),
             ]
         ).T
 
