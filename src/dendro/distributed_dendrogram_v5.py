@@ -226,17 +226,24 @@ class DistributedDendrogramV5(Dendrogram):
         return local_dendrogram
 
     @staticmethod
-    def compute_pseudo_parallel(data, ntasks, min_delta=0, min_npix=0, min_value="min"):
+    def compute_pseudo_parallel(
+        data, ntasks, min_delta=0, min_npix=0, min_value="min", halo_size=None
+    ):
         self = DistributedDendrogramV5()
         self.data = data
         self.params = dict(min_npix=min_npix, min_value=min_value, min_delta=min_delta)
-        self.halo_size = max([data.shape[0] // ntasks // 4, 2 * min_npix])
+        self.halo_size = (
+            halo_size
+            if halo_size
+            else max([data.shape[0] // ntasks // 4, 2 * min_npix])
+        )
 
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
             data=self.data,
             ntasks=ntasks,
             min_npix=min_npix // ntasks,
             min_value=min_value,
+            min_delta=min_delta,
             halo_size=self.halo_size,
         )
 
