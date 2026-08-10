@@ -237,6 +237,7 @@ class DistributedDendrogramV5(Dendrogram):
             ntasks=ntasks,
             min_npix=min_npix // ntasks,
             min_value=min_value,
+            min_delta=min_delta,
             halo_size=self.halo_size,
         )
 
@@ -329,6 +330,7 @@ class DistributedDendrogramV5(Dendrogram):
         return structures
 
     def split_adjacent_structures(self, to_merge, adjacent_structures, structures):
+        # TODO: cleanup splitting up structures at non-adjacent areas
         for i, adjacent in enumerate(adjacent_structures):
             if to_merge._vmin < adjacent._vmin < to_merge._vmax:
                 to_merge, bottom_part = self.split_structure(to_merge, adjacent._vmin)
@@ -341,12 +343,18 @@ class DistributedDendrogramV5(Dendrogram):
                 structures = self.insert_structure(structures, bottom_part)
                 self.index_map[*bottom_part._indices.T] = -1
 
+                print("qoooooo")
+                self.structure_is_contiguous(adjacent_structures[i])
+
             if adjacent._vmin < to_merge._vmax < adjacent._vmax:
                 adjacent_structures[i], bottom_part = self.split_structure(
                     adjacent, to_merge._vmax
                 )
                 structures = self.insert_structure(structures, bottom_part)
                 self.index_map[*bottom_part._indices.T] = -1
+
+                print("bluuuuu")
+                self.structure_is_contiguous(adjacent_structures[i])
 
         return to_merge, adjacent_structures, structures
 
@@ -368,6 +376,7 @@ class DistributedDendrogramV5(Dendrogram):
             )
             self.index_map[*leaf._indices.T] = leaf.idx
             merged_structures.append(leaf)
+            self._structures_dict[leaf.idx] = leaf
             self.logger.info(
                 f"Created new leaf with index {leaf.idx} and {len(leaf._values)} values between {leaf._vmin:.2f} and {leaf._vmax:.2f}."
             )
@@ -416,6 +425,7 @@ class DistributedDendrogramV5(Dendrogram):
                 belongs_to = branch
                 self.index_map[*branch._indices.T] = branch.idx
                 merged_structures.append(branch)
+                self._structures_dict[branch.idx] = branch
                 self.logger.info(
                     f"Created branch with index {branch.idx} and {len(branch._values)} values between {branch._vmin:.2f} and {branch._vmax:.2f} and {len(branch._children)} children : {[me.idx for me in branch._children]}."
                 )
@@ -454,6 +464,7 @@ class DistributedDendrogramV5(Dendrogram):
         # prepare infrastructure
         merged_structures = []
         self.index_map = -np.ones(np.add(self.data.shape, 1), dtype=np.int32)
+        self._structures_dict = {}
 
         structures = self.sort_structures(structures)
 
@@ -509,7 +520,10 @@ class DistributedDendrogramV5(Dendrogram):
 
             # from dendro.utils import plot_astrodendro_leaves
             # import matplotlib.pyplot as plt
-            # fig, axs = plt.subplots(1, 2)
+            # if 'fig' not in locals().keys():
+            #     fig, axs = plt.subplots(1, 2)
+            # for ax in axs:
+            #     ax.cla()
             # plot_astrodendro_leaves(axs[0], np.arange(self.data.shape[0]), self.data, merged_structures, plot_children=False)
             # plot_astrodendro_leaves(axs[1], np.arange(self.data.shape[0]), self.data, structures, plot_children=False)
             # plt.pause(1e-9)
@@ -524,6 +538,49 @@ class DistributedDendrogramV5(Dendrogram):
         ]
 
         self.make_output_astrodendro_compatible(is_independent=is_independent)
+
+    def structure_is_contiguous(self, structure):
+        print(f"Checking {structure.idx} for contigouity")
+        # indices = structure.indices(subtree=True)
+        indices = structure._indices
+
+        slices = [
+            slice(indices[:, i].min(), indices[:, i].max() + 1)
+            for i in range(indices.shape[1])
+        ]
+        overlapping_structures_indices = self.index_map[*slices]
+
+        if np.allclose(overlapping_structures_indices, structure.idx):
+            return True
+
+        ancestors = np.reshape(
+            [
+                self._structures_dict[i].ancestor.idx if i >= 0 else i
+                for i in overlapping_structures_indices.flatten()
+            ],
+            overlapping_structures_indices.shape,
+        )
+
+        if np.allclose(ancestors, structure.idx):
+            return True
+
+        non_contig_idx = np.nonzero(~(ancestors == structure.ancestor.idx))
+        contig_patches_idx = np.hstack(
+            [
+                tuple([0] for _ in range(len(non_contig_idx))),
+                non_contig_idx,
+                tuple([me-1] for me in overlapping_structures_indices.shape),
+            ]
+        ).T
+
+        contiguous = (
+            np.allclose(ancestors, structure.ancestor.idx)
+            and -1 not in overlapping_structures_indices
+        )
+        if not contiguous:
+            breakpoint()
+
+            # breakpoint()
 
     def get_overlapping_structures_indices(self, to_merge):
         indices = np.unique(self.index_map[*(to_merge._indices).T])
