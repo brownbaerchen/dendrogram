@@ -121,33 +121,6 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
 
         return local_dendrograms
 
-    def communicate_structures(self, local_dendrogram):
-        self.logger.info(
-            f"Starting to communicate {len(local_dendrogram)} local structures"
-        )
-        t0 = perf_counter()
-
-        structures = [structure for structure in local_dendrogram.all_structures]
-
-        # unpack data from structures for communication
-        raw_data = [
-            (structure.idx, structure._indices, structure._values)
-            for structure in structures
-        ]
-
-        # communicate the data
-        all_raw_data = self.comm.allgather(raw_data)
-
-        # repack the data into structures
-        for i, _data in enumerate(all_raw_data):
-            if i != self.comm.rank:
-                for me in _data:
-                    structures += [Structure(idx=me[0], indices=me[1], values=me[2])]
-
-        t1 = perf_counter()
-        self.logger.info(f"Finished communicating structures in {t1 - t0:.2e}s")
-        return structures
-
     def split_halo_structures(
         self, local_dendrogram, left_halo_size, right_halo_size, offset
     ):
@@ -232,13 +205,6 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
 
         self.compute_from_structures(all_structures)
         return self
-
-    def get_uid(self):
-        if not hasattr(self, "_uid"):
-            self._uid = -1
-        else:
-            self._uid -= 1
-        return self._uid
 
     def merge_structures(self, to_merge, merge_into):
         merge_into._indices = np.vstack([merge_into._indices, to_merge._indices])
