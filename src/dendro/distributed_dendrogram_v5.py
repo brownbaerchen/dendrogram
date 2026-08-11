@@ -206,17 +206,6 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
         self.compute_from_structures(all_structures)
         return self
 
-    def merge_structures(self, to_merge, merge_into):
-        merge_into._indices = np.vstack([merge_into._indices, to_merge._indices])
-        merge_into._values = np.append(merge_into._values, to_merge._values)
-        merge_into._vmin = min([merge_into._vmin, to_merge._vmin])
-        merge_into._vmax = max([merge_into._vmax, to_merge._vmax])
-        merge_into._smallest_index = np.min(merge_into._indices)
-        self.index_map[*to_merge._indices.T] = merge_into.idx
-        self.logger.info(
-            f"Merged {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} into existing structure {merge_into.idx}, which now has {len(merge_into._values)} values between {merge_into._vmin:.2f} and {merge_into._vmax:.2f}"
-        )
-
     def split_structure(self, structure, split_at):
 
         if not isinstance(structure._values, np.ndarray):
