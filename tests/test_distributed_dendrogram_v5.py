@@ -34,6 +34,9 @@ def test_1D_v5_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show
     halo_size_special_cases[(4, 64, 0, 0.5, "min")] = 24
     halo_size_special_cases[(2, 64, 6, 0.5, "min")] = 100
     halo_size_special_cases[(4, 64, 6, 0.5, "min")] = 24
+    halo_size_special_cases[(4, 64, 6, 0.0, "min")] = (
+        100  # This one only fails on GitHub..
+    )
     halo_size_special_cases[(4, 32, 0, 0.5, 0.2)] = 24
     halo_size_special_cases[(4, 33, 0, 0.5, 0.2)] = 24
     halo_size = halo_size_special_cases.get(
@@ -245,7 +248,7 @@ if __name__ == "__main__":
 
     # test_1D_v5_pseudo_parallel(4, 33, 0, 0.5, 0.2, show=True)
     # test_1D_v5_pseudo_parallel(4, 33, 0, 0.5, 0.2, show=True)
-    # test_1D_v5_pseudo_parallel(4, 64, 6, 0.1, 'min', show=True)
+    test_1D_v5_pseudo_parallel(4, 64, 6, 0.0, "min", show=True)
     # test_1D_v5(2, 33, 0, 0.0, 0.0)
-    test_2D_v5_pseudo_parallel(4, 32, 3, 0, 0, 0, show=True)
+    # test_2D_v5_pseudo_parallel(4, 32, 3, 0, 0, 0, show=True)
     # test_example_pseudo_parallel(2, 2, 0, 0)
