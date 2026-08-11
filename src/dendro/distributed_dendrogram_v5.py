@@ -12,7 +12,6 @@ from dendro.distributed_dendrogram_v3 import get_logger, DistributedDendrogramV3
 class DistributedDendrogramV5(DistributedDendrogramV3):
     wcs = None
     logger = get_logger()
-    halo_size = 0
 
     @staticmethod
     def compute(
@@ -179,7 +178,7 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
         self = DistributedDendrogramV5()
         self.data = data
         self.params = dict(min_npix=min_npix, min_value=min_value, min_delta=min_delta)
-        self.halo_size = (
+        halo_size = (
             halo_size
             if halo_size
             else max([data.shape[0] // ntasks // 4, 2 * min_npix])
@@ -191,7 +190,7 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
             min_npix=min_npix // ntasks,
             min_value=min_value,
             min_delta=min_delta,
-            halo_size=self.halo_size,
+            halo_size=halo_size,
         )
 
         all_structures = []

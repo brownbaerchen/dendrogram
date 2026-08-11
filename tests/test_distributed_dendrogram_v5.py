@@ -248,7 +248,7 @@ if __name__ == "__main__":
 
     # test_1D_v5_pseudo_parallel(4, 33, 0, 0.5, 0.2, show=True)
     # test_1D_v5_pseudo_parallel(4, 33, 0, 0.5, 0.2, show=True)
-    test_1D_v5_pseudo_parallel(4, 64, 6, 0.0, "min", show=True)
+    # test_1D_v5_pseudo_parallel(4, 64, 6, 0.0, "min", show=True)
     # test_1D_v5(2, 33, 0, 0.0, 0.0)
-    # test_2D_v5_pseudo_parallel(4, 32, 3, 0, 0, 0, show=True)
+    test_2D_v5_pseudo_parallel(4, 32, 3, 0, 0, 0, show=True)
     # test_example_pseudo_parallel(2, 2, 0, 0)
