@@ -177,10 +177,15 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
     ):
         self = DistributedDendrogramV5()
         self.data = data
-        self.params = dict(min_npix=min_npix, min_value=min_value, min_delta=min_delta)
+        self.params = dict(
+            min_npix=min_npix,
+            min_value=min_value,
+            min_delta=min_delta,
+            halo_size=halo_size,
+        )
         halo_size = (
             halo_size
-            if halo_size
+            if halo_size is not None
             else max([data.shape[0] // ntasks // 4, 2 * min_npix])
         )
 

@@ -71,7 +71,7 @@ def test_1D_v5_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show
 
         local_dendrograms = (
             DistributedDendrogramV5().compute_local_dendrogram_pseudo_parallel(
-                ntasks=ntasks, halo_size=dendrogram.halo_size, **kwargs
+                ntasks=ntasks, halo_size=dendrogram.params["halo_size"], **kwargs
             )
         )
         for i, d in enumerate(local_dendrograms):
@@ -160,7 +160,7 @@ def test_2D_v5_pseudo_parallel(
         fig, axs = plt.subplots(2, ntasks)
         local_dendrograms = (
             DistributedDendrogramV5().compute_local_dendrogram_pseudo_parallel(
-                data.numpy(), ntasks, halo_size=dendrogram.halo_size
+                data.numpy(), ntasks, halo_size=dendrogram.params["halo_size"]
             )
         )
         for i, d in enumerate(local_dendrograms):
