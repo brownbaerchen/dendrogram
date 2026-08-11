@@ -236,34 +236,6 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
             )
         return structure, bottom_part
 
-    @staticmethod
-    def sort_structures(structures):
-        vmax = [structure._vmax for structure in structures]
-        return [structures[i] for i in np.argsort(vmax)[::-1]]
-
-    @staticmethod
-    def insert_structure_within(structures, insert):
-        vmax = np.array([structure._vmax for structure in structures])
-        insert_at = np.nonzero(vmax < insert._vmax)[0][0]
-        return structures[:insert_at] + [insert] + structures[insert_at:]
-
-    @staticmethod
-    def insert_structure(structures, to_insert):
-        if len(structures) == 0:
-            structures = [to_insert]
-        elif to_insert._vmax > structures[0]._vmax:
-            structures = [to_insert] + structures
-        elif to_insert._vmax <= structures[-1]._vmax:
-            structures.append(to_insert)
-        else:
-            structures = DistributedDendrogramV5.insert_structure_within(
-                structures, to_insert
-            )
-        DistributedDendrogramV5.logger.info(
-            f"Inserted structure with {len(to_insert._values)} values between {to_insert._vmin:.2f} and {to_insert._vmax:.2f} into list of {len(structures)} remaining structures."
-        )
-        return structures
-
     def split_adjacent_structures(self, to_merge, adjacent_structures, structures):
         for i, adjacent in enumerate(adjacent_structures):
             if to_merge._vmin < adjacent._vmin < to_merge._vmax:
