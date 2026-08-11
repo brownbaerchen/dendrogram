@@ -56,8 +56,11 @@ def compare_dendrograms(ref_dendrogram, other_dendrogram):
         assert len(corresponds_to) == 1, (
             f"Structure {structure.idx} in reference dendrogram corresponds to {len(corresponds_to)} structures {[me.idx for me in corresponds_to]} in the merged one"
         )
+        assert len(np.unique(corresponds_to[0]._indices, axis=0)) == len(
+            corresponds_to[0]._indices
+        ), f"Structure {corresponds_to[0].idx} has non-unique indices"
         assert len(structure._indices) == len(corresponds_to[0]._indices), (
-            "Structures have different lengths"
+            f"Structure {corresponds_to[0].idx} has different length from reference structure {structure.idx}"
         )
         assert np.allclose(
             np.sort(np.array(structure._indices).flatten()),
