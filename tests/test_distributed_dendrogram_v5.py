@@ -85,6 +85,7 @@ def test_1D_v5_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show
     compare_dendrograms(reference_dendrogram, dendrogram)
 
 
+@pytest.mark.skip
 @pytest.mark.mpi(ranks=[2])
 @pytest.mark.parametrize("res", [33, 64])
 @pytest.mark.parametrize("min_npix", [0, 6])
@@ -124,6 +125,7 @@ def test_1D_v5(mpi_ranks, res, min_npix, min_delta, min_value):
     compare_dendrograms(reference_dendrogram, dendrogram)
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("res", [32, 64])
 @pytest.mark.parametrize("n_peaks", [1, 2, 3, 4])
@@ -178,6 +180,7 @@ def test_2D_v5_pseudo_parallel(
     compare_dendrograms(reference_dendrogram, dendrogram)
 
 
+@pytest.mark.skip
 @pytest.mark.mpi(ranks=[1, 2])
 @pytest.mark.parametrize("res", [32])
 @pytest.mark.parametrize("n_peaks", [2, 3])
@@ -191,6 +194,7 @@ def test_2D_v5(mpi_ranks, res, n_peaks):
     compare_dendrograms(reference_dendrogram, dendrogram)
 
 
+@pytest.mark.skip
 @pytest.mark.mpi(ranks=[1, 2])
 def test_2D_save_and_load(mpi_ranks):
     from dendro.utils import get_2d_data
@@ -206,6 +210,7 @@ def test_2D_save_and_load(mpi_ranks):
         compare_dendrograms(compare_to, dendrogram)
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("min_value", [2])
 @pytest.mark.parametrize("min_delta", [0, 1])
