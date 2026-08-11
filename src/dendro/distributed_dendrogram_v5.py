@@ -363,32 +363,3 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
                 to_merge, common_part = self.split_structure(to_merge, mask)
 
         return to_merge, structures
-
-    @staticmethod
-    def get_adjacent_structure_indices(structure, index_map, peak=False):
-        adjacent = []
-
-        if peak:
-            max_idx = np.argmax(structure._values)
-            idx = structure._indices[max_idx].reshape((1, -1))
-        else:
-            idx = np.array(structure._indices)
-
-        for i in range(idx.shape[1]):
-            one = np.zeros((1, idx.shape[1]), dtype=int)
-            one[:, i] = 1
-            adjacent += list(index_map[*(idx + one).T])
-            adjacent += list(index_map[*(idx - one).T])
-        return [me for me in np.unique(adjacent) if me >= 0]
-
-    @staticmethod
-    def get_adjacent_structures(structure, merged_structures, index_map, peak=False):
-        adjacent_structure_indices = (
-            DistributedDendrogramV5.get_adjacent_structure_indices(
-                structure, index_map, peak=peak
-            )
-        )
-        ancestor_indices = np.unique(
-            [merged_structures[i].ancestor.idx for i in adjacent_structure_indices]
-        )
-        return [merged_structures[i] for i in ancestor_indices]
