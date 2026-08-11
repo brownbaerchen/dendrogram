@@ -236,28 +236,6 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
             )
         return structure, bottom_part
 
-    def split_adjacent_structures(self, to_merge, adjacent_structures, structures):
-        for i, adjacent in enumerate(adjacent_structures):
-            if to_merge._vmin < adjacent._vmin < to_merge._vmax:
-                to_merge, bottom_part = self.split_structure(to_merge, adjacent._vmin)
-                structures = self.insert_structure(structures, bottom_part)
-
-            if adjacent._vmin < to_merge._vmin < adjacent._vmax:
-                adjacent_structures[i], bottom_part = self.split_structure(
-                    adjacent, to_merge._vmin
-                )
-                structures = self.insert_structure(structures, bottom_part)
-                self.index_map[*bottom_part._indices.T] = -1
-
-            if adjacent._vmin < to_merge._vmax < adjacent._vmax:
-                adjacent_structures[i], bottom_part = self.split_structure(
-                    adjacent, to_merge._vmax
-                )
-                structures = self.insert_structure(structures, bottom_part)
-                self.index_map[*bottom_part._indices.T] = -1
-
-        return to_merge, adjacent_structures, structures
-
     def merge_individual_structure(
         self,
         to_merge,
