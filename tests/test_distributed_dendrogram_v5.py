@@ -130,7 +130,9 @@ def test_1D_v5(mpi_ranks, res, min_npix, min_delta, min_value):
 @pytest.mark.parametrize("min_npix", [0, 16])
 @pytest.mark.parametrize("min_delta", [0, 0.1])
 @pytest.mark.parametrize("min_value", ["min", 0.2])
-def test_2D_v5_pseudo_parallel(ntasks, res, n_peaks, min_npix, min_value, min_delta):
+def test_2D_v5_pseudo_parallel(
+    ntasks, res, n_peaks, min_npix, min_value, min_delta, show=False
+):
     from dendro.utils import get_2d_data
 
     _, _, data = get_2d_data(res, n_peaks)
@@ -142,19 +144,36 @@ def test_2D_v5_pseudo_parallel(ntasks, res, n_peaks, min_npix, min_value, min_de
     }
 
     dendrogram = DistributedDendrogramV5.compute_pseudo_parallel(
-        data.numpy(), ntasks, **kwargs
+        data.numpy(), ntasks, halo_size=0, **kwargs
     )
     reference_dendrogram = Dendrogram.compute(data.numpy(), **kwargs)
 
-    # import matplotlib.pyplot as plt
-    # from dendro.utils import plot_astrodendro_tree_2D
-    # fig, axs = plt.subplots(2, ntasks)
-    # local_dendrograms = DistributedDendrogramV5.compute_local_dendrogram_pseudo_parallel(data.numpy(), ntasks)
-    # for i, d in enumerate(local_dendrograms):
-    #     plot_astrodendro_tree_2D(axs[0, i], d, d.trunk)
-    # plot_astrodendro_tree_2D(axs[1, 0], dendrogram, dendrogram.trunk)
-    # plot_astrodendro_tree_2D(axs[1, 1], reference_dendrogram, reference_dendrogram.trunk)
-    # plt.show()
+    if show:
+        import matplotlib.pyplot as plt
+        from dendro.utils import plot_astrodendro_tree_2D
+
+        fig, axs = plt.subplots(2, ntasks)
+        local_dendrograms = (
+            DistributedDendrogramV5().compute_local_dendrogram_pseudo_parallel(
+                data.numpy(), ntasks, halo_size=dendrogram.halo_size
+            )
+        )
+        for i, d in enumerate(local_dendrograms):
+            for s in d.all_structures:
+                s._indices = list(s._indices)
+                s._values = list(s._values)
+                s._peak = None
+                s._descendants = None
+                s._dendrogram = d
+                s._tree_index = None
+                d.data = data.numpy()
+
+            plot_astrodendro_tree_2D(axs[0, i], d, d.trunk)
+        plot_astrodendro_tree_2D(axs[1, 0], dendrogram, dendrogram.trunk)
+        plot_astrodendro_tree_2D(
+            axs[1, 1], reference_dendrogram, reference_dendrogram.trunk
+        )
+        plt.show()
 
     compare_dendrograms(reference_dendrogram, dendrogram)
 
@@ -220,8 +239,8 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)
 
     # test_1D_v5_pseudo_parallel(4, 33, 0, 0.5, 0.2, show=True)
-    test_1D_v5_pseudo_parallel(4, 33, 0, 0.5, 0.2, show=True)
+    # test_1D_v5_pseudo_parallel(4, 33, 0, 0.5, 0.2, show=True)
     # test_1D_v5_pseudo_parallel(4, 64, 6, 0.1, 'min', show=True)
     # test_1D_v5(2, 33, 0, 0.0, 0.0)
-    # test_2D_v5_pseudo_parallel(4, 32, 3, 0, 0, 0)
+    test_2D_v5_pseudo_parallel(4, 32, 3, 0, 0, 0, show=True)
     # test_example_pseudo_parallel(2, 2, 0, 0)

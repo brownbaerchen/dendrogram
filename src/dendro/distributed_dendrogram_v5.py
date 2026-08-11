@@ -213,6 +213,7 @@ class DistributedDendrogramV5(Dendrogram):
                     # split structure at halo
                     structure, halo_part = self.split_structure(structure, mask)
                     halo_part.idx = len(local_dendrogram._structures_dict)
+                    halo_part.children = []
 
                     # enter the halo part separately into the local dendrogram
                     local_dendrogram.trunk.append(halo_part)
