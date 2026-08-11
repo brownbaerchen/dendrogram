@@ -2,14 +2,14 @@ import heat as ht
 import numpy as np
 from time import perf_counter
 
-from astrodendro.dendrogram import Dendrogram, _make_trunk
+from astrodendro.dendrogram import Dendrogram
 from astrodendro import pruning
 
 from dendro.distributed_dendrogram import Structure
-from dendro.distributed_dendrogram_v3 import get_logger
+from dendro.distributed_dendrogram_v3 import get_logger, DistributedDendrogramV3
 
 
-class DistributedDendrogramV5(Dendrogram):
+class DistributedDendrogramV5(DistributedDendrogramV3):
     wcs = None
     logger = get_logger()
     halo_size = 0
@@ -42,33 +42,6 @@ class DistributedDendrogramV5(Dendrogram):
         self.compute_from_structures(structures, is_independent=is_independent)
 
         return self
-
-    def make_output_astrodendro_compatible(self, is_independent):
-
-        t0 = perf_counter()
-        self.logger.info("Start making compatible with astrodendro")
-
-        if isinstance(self.data, ht.DNDarray):
-            self.data = self.data.numpy()
-
-        # Remove border from index map
-        s = tuple(slice(0, s, 1) for s in self.data.shape)
-        self.index_map = self.index_map[s]
-
-        for s in self.all_structures:
-            s._indices = list(s._indices)
-            s._values = list(s._values)
-
-        _make_trunk(
-            self,
-            {i: structure for i, structure in enumerate(self.all_structures)},
-            is_independent,
-        )
-
-        t1 = perf_counter()
-        self.logger.info(
-            f"Finished making compatible with astrodendro after {t1 - t0:.2e}s"
-        )
 
     def _compute_single_local_dendrogram(self, local_data, split_dim=0, **kwargs):
 
