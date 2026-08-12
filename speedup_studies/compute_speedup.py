@@ -26,7 +26,7 @@ def parse_args():
         type=str,
         help="choose a dendrogram version",
         default="v3",
-        choices=["astrodendro", "v1", "v3"],
+        choices=["astrodendro", "v1", "v3", "v5"],
     )
     parser.add_argument("--plot", type=cast_to_bool, help="plot results", default=False)
     parser.add_argument(
@@ -113,6 +113,10 @@ def compute_dendrogram(args, dendrogram_args):
         elif args["version"] == "v3":
             from dendro.distributed_dendrogram_v3 import (
                 DistributedDendrogramV3 as Dendrogram,
+            )
+        elif args["version"] == "v5":
+            from dendro.distributed_dendrogram_v5 import (
+                DistributedDendrogramV5 as Dendrogram,
             )
         else:
             raise NotImplementedError

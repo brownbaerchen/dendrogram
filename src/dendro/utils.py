@@ -68,7 +68,7 @@ def compare_dendrograms(ref_dendrogram, other_dendrogram):
         ), r"Indices don\'t match between merged and reference structure"
 
 
-def plot_astrodendro_leaves(ax, x, data, leaves, level=0):
+def plot_astrodendro_leaves(ax, x, data, leaves, level=0, plot_children=True):
     markers = {0: ".", 1: "x", 2: ">", 3: "o", 4: "<"}
 
     if level == 0:
@@ -80,12 +80,13 @@ def plot_astrodendro_leaves(ax, x, data, leaves, level=0):
             np.array(data)[leaf._indices],
             marker=markers.get(level, "."),
         )
-        plot_astrodendro_leaves(
-            ax=ax, x=x, data=data, leaves=leaf._children, level=level + 1
-        )
+        if plot_children:
+            plot_astrodendro_leaves(
+                ax=ax, x=x, data=data, leaves=leaf._children, level=level + 1
+            )
 
 
-def plot_astrodendro_tree_2D(ax, dendrogram, leaves, _plotter=None):
+def plot_astrodendro_tree_2D(ax, dendrogram, leaves, _plotter=None, plot_children=True):
     if _plotter is None:
         _plotter = dendrogram.plotter()
         data = (
@@ -97,4 +98,46 @@ def plot_astrodendro_tree_2D(ax, dendrogram, leaves, _plotter=None):
 
     for leaf in leaves:
         _plotter.plot_contour(ax, structure=leaf)
-        plot_astrodendro_tree_2D(ax, dendrogram, leaf.children, _plotter=_plotter)
+        if plot_children:
+            plot_astrodendro_tree_2D(ax, dendrogram, leaf.children, _plotter=_plotter)
+
+
+def plot(ax, dendrogram, leaves, plot_children=True):
+    data = dendrogram.data
+    if data.ndim == 1:
+        x = np.arange(data.shape[0])
+        plot_astrodendro_leaves(ax, x, data, leaves, plot_children=plot_children)
+    elif data.ndim == 2:
+        remove_trunk = False
+        if not hasattr(dendrogram, "_trunk"):
+            dendrogram._trunk = leaves
+            remove_trunk = True
+
+        def _convert_to_list(s):
+            s._indices = list(s._indices)
+            s._values = list(s._values)
+            s._peak = None
+            s._descendants = None
+            s._dendrogram = dendrogram
+            s._tree_index = None
+            s._level = 0
+            for _s in s.children:
+                _convert_to_list(_s)
+
+        for s in leaves:
+            _convert_to_list(s)
+
+        plot_astrodendro_tree_2D(ax, dendrogram, leaves, plot_children=plot_children)
+        if remove_trunk:
+            delattr(dendrogram, "_trunk")
+
+        def _convert_to_numpy(s):
+            s._indices = np.array(s._indices)
+            s._values = np.array(s._values)
+            for _s in s.children:
+                _convert_to_numpy(_s)
+
+        for s in leaves:
+            _convert_to_numpy(s)
+    else:
+        raise NotImplementedError
