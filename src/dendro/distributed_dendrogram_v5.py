@@ -12,6 +12,7 @@ from dendro.distributed_dendrogram_v3 import get_logger, DistributedDendrogramV3
 class DistributedDendrogramV5(DistributedDendrogramV3):
     wcs = None
     logger = get_logger()
+    live_plotting = False
 
     @staticmethod
     def compute(
@@ -158,7 +159,6 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
                     # split structure at halo
                     structure, halo_part = self.split_structure(structure, mask)
                     halo_part.idx = len(local_dendrogram._structures_dict)
-                    halo_part.children = []
 
                     # enter the halo part separately into the local dendrogram
                     local_dendrogram.trunk.append(halo_part)
@@ -313,14 +313,8 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
                 is_independent=is_independent,
             )
 
-            # from dendro.utils import plot_astrodendro_leaves
-            # import matplotlib.pyplot as plt
-            # fig, axs = plt.subplots(1, 2)
-            # plot_astrodendro_leaves(axs[0], np.arange(self.data.shape[0]), self.data, merged_structures, plot_children=False)
-            # plot_astrodendro_leaves(axs[1], np.arange(self.data.shape[0]), self.data, structures, plot_children=False)
-            # plt.pause(1e-9)
-            # breakpoint()
-            # plt.close(fig)
+            if self.live_plotting:
+                self.live_plot(structures, merged_structures)
 
         t1 = perf_counter()
         self.time_merge_dendrograms = t1 - t0
@@ -330,6 +324,19 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
         ]
 
         self.make_output_astrodendro_compatible(is_independent=is_independent)
+
+    def live_plot(self, structures, merged_structures):
+        from dendro.utils import plot
+        import matplotlib.pyplot as plt
+
+        live_fig, live_axs = plt.subplots(1, 2)
+
+        plot(live_axs[0], self, merged_structures, plot_children=False)
+        plot(live_axs[1], self, structures, plot_children=False)
+        plt.pause(4e-1)
+        # breakpoint()
+
+        plt.close(live_fig)
 
     def get_overlapping_structures_indices(self, to_merge):
         indices = np.unique(self.index_map[*(to_merge._indices).T])

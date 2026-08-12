@@ -149,7 +149,7 @@ def test_2D_v5_pseudo_parallel(
     }
 
     dendrogram = DistributedDendrogramV5.compute_pseudo_parallel(
-        data.numpy(), ntasks, halo_size=0, **kwargs
+        data.numpy(), ntasks, halo_size=4, **kwargs
     )
     reference_dendrogram = Dendrogram.compute(data.numpy(), **kwargs)
 
@@ -246,9 +246,9 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logging.basicConfig(level=logging.INFO)
 
-    # test_1D_v5_pseudo_parallel(4, 33, 0, 0.5, 0.2, show=True)
+    # test_1D_v5_pseudo_parallel(4, 33, 0, 0.1, 0.2, show=True)
     # test_1D_v5_pseudo_parallel(4, 33, 0, 0.5, 0.2, show=True)
     # test_1D_v5_pseudo_parallel(4, 64, 6, 0.0, "min", show=True)
     # test_1D_v5(2, 33, 0, 0.0, 0.0)
-    test_2D_v5_pseudo_parallel(4, 32, 3, 0, 0, 0, show=True)
+    test_2D_v5_pseudo_parallel(2, 64, 3, 0, 0, 0, show=True)
     # test_example_pseudo_parallel(2, 2, 0, 0)
