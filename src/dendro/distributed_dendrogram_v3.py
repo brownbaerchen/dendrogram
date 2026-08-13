@@ -263,7 +263,7 @@ class DistributedDendrogramV3(Dendrogram):
             f"Merged {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} into existing structure {merge_into.idx}, which now has {len(merge_into._values)} values between {merge_into._vmin:.2f} and {merge_into._vmax:.2f}"
         )
 
-    def split_structure(self, structure, split_at, structures):
+    def split_structure(self, structure, split_at):
 
         if not isinstance(structure._values, np.ndarray):
             structure._values = np.array(structure._values)
@@ -320,21 +320,19 @@ class DistributedDendrogramV3(Dendrogram):
     def split_adjacent_structures(self, to_merge, adjacent_structures, structures):
         for i, adjacent in enumerate(adjacent_structures):
             if to_merge._vmin < adjacent._vmin < to_merge._vmax:
-                to_merge, bottom_part = self.split_structure(
-                    to_merge, adjacent._vmin, structures
-                )
+                to_merge, bottom_part = self.split_structure(to_merge, adjacent._vmin)
                 structures = self.insert_structure(structures, bottom_part)
 
             if adjacent._vmin < to_merge._vmin < adjacent._vmax:
                 adjacent_structures[i], bottom_part = self.split_structure(
-                    adjacent, to_merge._vmin, structures
+                    adjacent, to_merge._vmin
                 )
                 structures = self.insert_structure(structures, bottom_part)
                 self.index_map[*bottom_part._indices.T] = -1
 
             if adjacent._vmin < to_merge._vmax < adjacent._vmax:
                 adjacent_structures[i], bottom_part = self.split_structure(
-                    adjacent, to_merge._vmax, structures
+                    adjacent, to_merge._vmax
                 )
                 structures = self.insert_structure(structures, bottom_part)
                 self.index_map[*bottom_part._indices.T] = -1
@@ -486,14 +484,16 @@ class DistributedDendrogramV3(Dendrogram):
                 is_independent=is_independent,
             )
 
-            # from dendro.utils import plot_astrodendro_leaves
+            # from dendro.utils import plot
             # import matplotlib.pyplot as plt
-            # fig, axs = plt.subplots(1, 2)
-            # plot_astrodendro_leaves(axs[0], np.arange(self.data.shape[0]), self.data, merged_structures)
-            # plot_astrodendro_leaves(axs[1], np.arange(self.data.shape[0]), self.data, structures)
+            # if 'fig' not in locals():
+            #     fig, axs = plt.subplots(1, 2)
+            # plot(axs[0], self, merged_structures, plot_children=False)
+            # plot(axs[1], self, structures, plot_children=False)
             # plt.pause(1e-9)
             # breakpoint()
-            # fig.clf()
+            # for ax in axs:
+            #     ax.cla()
 
         t1 = perf_counter()
         self.time_merge_dendrograms = t1 - t0
