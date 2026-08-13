@@ -25,3 +25,8 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
         ]
 
         return local_dendrograms
+
+    def _compute_single_local_dendrogram(self, *args, **kwargs):
+        return super()._compute_single_local_dendrogram(
+            *args, **kwargs, isolate_borders=False
+        )
