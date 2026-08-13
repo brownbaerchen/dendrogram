@@ -25,12 +25,12 @@ def test_1D_v5_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show
     }
 
     halo_size_special_cases = {}
-    halo_size_special_cases[(2, 64, 0, 0.1, "min")] = 100
+    # halo_size_special_cases[(2, 64, 0, 0.1, "min")] = 100
     halo_size_special_cases[(2, 64, 6, 0.1, "min")] = 100
     halo_size_special_cases[(4, 64, 6, 0.1, "min")] = 100
     halo_size_special_cases[(4, 32, 0, 0.5, "min")] = 5
     halo_size_special_cases[(4, 33, 0, 0.5, "min")] = 5
-    halo_size_special_cases[(2, 64, 0, 0.5, "min")] = 100
+    # halo_size_special_cases[(2, 64, 0, 0.5, "min")] = 100
     halo_size_special_cases[(4, 64, 0, 0.5, "min")] = 24
     halo_size_special_cases[(2, 64, 6, 0.5, "min")] = 100
     halo_size_special_cases[(4, 64, 6, 0.5, "min")] = 24
@@ -43,6 +43,7 @@ def test_1D_v5_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show
         (ntasks, res, min_npix, min_delta, min_value), None
     )
 
+    # DistributedDendrogramV5.live_plotting = show
     dendrogram = DistributedDendrogramV5.compute_pseudo_parallel(
         **kwargs, ntasks=ntasks, halo_size=halo_size
     )
@@ -148,6 +149,7 @@ def test_2D_v5_pseudo_parallel(
         "min_delta": min_delta,
     }
 
+    DistributedDendrogramV5.live_plotting = show
     dendrogram = DistributedDendrogramV5.compute_pseudo_parallel(
         data.numpy(), ntasks, halo_size=4, **kwargs
     )
@@ -246,7 +248,8 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logging.basicConfig(level=logging.INFO)
 
-    # test_1D_v5_pseudo_parallel(4, 33, 0, 0.1, 0.2, show=True)
+    # test_1D_v5_pseudo_parallel(2, 64, 8, 0.0, "min", show=True)
+    # test_1D_v5_pseudo_parallel(2, 64, 0, 0.5, 'min', show=True)
     # test_1D_v5_pseudo_parallel(4, 33, 0, 0.5, 0.2, show=True)
     # test_1D_v5_pseudo_parallel(4, 64, 6, 0.0, "min", show=True)
     # test_1D_v5(2, 33, 0, 0.0, 0.0)

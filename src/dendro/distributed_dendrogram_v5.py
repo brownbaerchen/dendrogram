@@ -45,6 +45,20 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
 
     def _compute_single_local_dendrogram(self, local_data, split_dim=0, **kwargs):
 
+        if "min_delta" in kwargs.keys():
+            min_value = kwargs.get("min_value", -np.inf)
+            min_value = -np.inf if min_value == "min" else min_value
+            new_min_delta = min(
+                [
+                    local_data.max() - max([min_value, local_data.min()]),
+                    kwargs["min_delta"],
+                ]
+            )
+            if new_min_delta != kwargs["min_delta"]:
+                self.logger.info(
+                    f"Replacing min_delta={kwargs['min_delta']} by {new_min_delta}"
+                )
+                kwargs["min_delta"] = new_min_delta * 0.9
         t0 = perf_counter()
         local_dendrogram = Dendrogram.compute(local_data, **kwargs)
         t1 = perf_counter()
@@ -85,7 +99,8 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
         elements_per_task = data.shape[0] // ntasks
         local_slices = [
             slice(
-                max([0, i * elements_per_task - halo_size]),
+                # max([0, i * elements_per_task - halo_size]),
+                i * elements_per_task,
                 min([data.shape[0], (i + 1) * elements_per_task + halo_size]),
             )
             for i in range(ntasks)
@@ -112,7 +127,7 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
         local_dendrograms = [
             self.split_halo_structures(
                 local_dendrogram,
-                left_halo_size=halo_size if i > 0 else 0,
+                left_halo_size=0,  # halo_size if i > 0 else 0,
                 right_halo_size=halo_size if i < ntasks - 1 else 0,
                 offset=local_slices[i].start,
             )
@@ -177,16 +192,18 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
     ):
         self = DistributedDendrogramV5()
         self.data = data
+
+        halo_size = (
+            halo_size
+            if halo_size is not None
+            else max([data.shape[0] // ntasks // 4, 2 * min_npix])
+        )
+
         self.params = dict(
             min_npix=min_npix,
             min_value=min_value,
             min_delta=min_delta,
             halo_size=halo_size,
-        )
-        halo_size = (
-            halo_size
-            if halo_size is not None
-            else max([data.shape[0] // ntasks // 4, 2 * min_npix])
         )
 
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
@@ -194,7 +211,7 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
             ntasks=ntasks,
             min_npix=min_npix // ntasks,
             min_value=min_value,
-            min_delta=min_delta,
+            # min_delta=min_delta,
             halo_size=halo_size,
         )
 
@@ -333,8 +350,8 @@ class DistributedDendrogramV5(DistributedDendrogramV3):
 
         plot(live_axs[0], self, merged_structures, plot_children=False)
         plot(live_axs[1], self, structures, plot_children=False)
-        plt.pause(4e-1)
-        # breakpoint()
+        plt.pause(4e-9)
+        breakpoint()
 
         plt.close(live_fig)
 
