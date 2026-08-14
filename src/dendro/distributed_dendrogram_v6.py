@@ -67,7 +67,8 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
             min_value = -np.inf if min_value == "min" else min_value
             data[data < min_value] = np.nan
 
-        count = np.isfinite(data).sum()
+        isfinite = np.isfinite(data)
+        count = isfinite.sum()
 
         elements_per_task = count // ntasks
         local_slices = [
@@ -77,13 +78,13 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
         local_slices[-1] = slice(local_slices[-1].start, None)
 
         if not hasattr(self, "__global_data_argsort_result"):
-            self.__global_data_argsort_result = np.argsort(data, axis=None)
+            self.__global_data_argsort_result = np.argsort(data[isfinite], axis=None)
         idx = self.__global_data_argsort_result
 
         local_idx = idx[local_slices[rank]]
         local_data = np.empty_like(data)
         local_data[...] = np.nan
-        local_data.flat[local_idx] = data.flat[local_idx]
+        local_data[np.flatnonzero(isfinite)[local_idx]] = data[isfinite][local_idx]
         local_count = np.isfinite(local_data).sum()
         self.logger.info(f"Rank {rank} got {local_count} out of {count} data points")
         return local_data
@@ -168,7 +169,7 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
             local_dendrogram.trunk.append(new_structure)
         _structs_post_readd = len(local_dendrogram._structures_dict)
         self.logger.info(
-            f"Added {_structs_post_readd - _structs_pre_readd} structures from {readd.sum()} unassigned structures"
+            f"Added {_structs_post_readd - _structs_pre_readd} structures from {readd.sum()} unassigned points"
         )
 
         # cast to numpy
