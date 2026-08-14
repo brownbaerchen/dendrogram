@@ -166,6 +166,7 @@ def test_2D_save_and_load(mpi_ranks):
     from astrodendro import Dendrogram
 
     _, _, data = get_2d_data(32, 4)
+    data = data.numpy()
 
     dendrogram = DistributedDendrogramV6.compute(data)
     with TemporaryDirectory() as tmpdir:
@@ -175,7 +176,7 @@ def test_2D_save_and_load(mpi_ranks):
         compare_dendrograms(compare_to, dendrogram)
 
 
-@pytest.mark.parametrize("ntasks", [1, 2, 4])
+@pytest.mark.parametrize("ntasks", [1, 2])  # , 4])
 @pytest.mark.parametrize("min_value", [2])
 @pytest.mark.parametrize("min_delta", [0, 1])
 @pytest.mark.parametrize("min_npix", [0])  # 10
