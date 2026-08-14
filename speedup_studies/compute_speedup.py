@@ -108,6 +108,8 @@ def compute_dendrogram(args, dendrogram_args):
         from dendro.distributed_dendrogram_v6 import (
             DistributedDendrogramV6 as Dendrogram,
         )
+
+        Dendrogram.break_apart_leaves = False
     else:
         dendrogram_args["data"] = ht.array(dendrogram_args["data"], split=0)
         if args["version"] == "v1":

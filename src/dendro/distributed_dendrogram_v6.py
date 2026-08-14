@@ -4,6 +4,7 @@ from mpi4py import MPI
 from dendro.distributed_dendrogram_v3 import DistributedDendrogramV3, Structure
 
 # TODO: Maybe: don't break apart leaves that are clearly not overlapping by using vmin, vmax
+# TODO: Start with top dendrogram rather than from scratch
 
 
 class DistributedDendrogramV6(DistributedDendrogramV3):
@@ -113,10 +114,13 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
         comm = self.comm
 
         assert isinstance(data, np.ndarray) or not data.is_distributed()
+        break_apart_leaves = self.break_apart_leaves and comm.rank < comm.size - 1
 
         local_data = self.get_local_data(data, comm.size, comm.rank, **kwargs)
 
-        local_dendrogram = self._compute_single_local_dendrogram(local_data, **kwargs)
+        local_dendrogram = self._compute_single_local_dendrogram(
+            local_data, break_apart_leaves=break_apart_leaves, **kwargs
+        )
         return local_dendrogram
 
     def _compute_single_local_dendrogram(
@@ -157,22 +161,38 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
         is_finite = np.isfinite(local_dendrogram.data)
         is_unassigned = local_dendrogram.index_map == -1
         readd = is_finite & is_unassigned
+        if np.any(readd):
+            readd_as_individual_structures = False
 
-        readd_indices = np.vstack(np.nonzero(readd)).T
-        readd_values = local_dendrogram.data[*readd_indices.T]
-        for i in range(len(readd_values)):
-            new_structure = Structure(
-                indices=[readd_indices[i]],
-                values=[readd_values[i]],
-                dendrogram=local_dendrogram,
-                idx=len(local_dendrogram._structures_dict),
+            if readd_as_individual_structures:
+                readd_indices = np.vstack(np.nonzero(readd)).T
+                readd_values = local_dendrogram.data[*readd_indices.T]
+                for i in range(len(readd_values)):
+                    new_structure = Structure(
+                        indices=[readd_indices[i]],
+                        values=[readd_values[i]],
+                        dendrogram=local_dendrogram,
+                        idx=len(local_dendrogram._structures_dict),
+                    )
+                    local_dendrogram._structures_dict[new_structure.idx] = new_structure
+                    local_dendrogram.trunk.append(new_structure)
+            else:
+                from astrodendro.dendrogram import Dendrogram
+
+                data = args[0]
+                unassigned_data = data.copy()
+                unassigned_data[...] = np.nan
+                unassigned_data[readd] = data[readd]
+
+                unassigned_structures_dendrogram = Dendrogram.compute(unassigned_data)
+                for structure in unassigned_structures_dendrogram:
+                    structure.idx = len(local_dendrogram._structures_dict)
+                    local_dendrogram._structures_dict[structure.idx] = structure
+                    local_dendrogram.trunk.append(structure)
+            _structs_post_readd = len(local_dendrogram._structures_dict)
+            self.logger.info(
+                f"Added {_structs_post_readd - _structs_pre_readd} structures from {readd.sum()} unassigned points"
             )
-            local_dendrogram._structures_dict[new_structure.idx] = new_structure
-            local_dendrogram.trunk.append(new_structure)
-        _structs_post_readd = len(local_dendrogram._structures_dict)
-        self.logger.info(
-            f"Added {_structs_post_readd - _structs_pre_readd} structures from {readd.sum()} unassigned points"
-        )
 
         # cast to numpy
         for structure in local_dendrogram.all_structures:
