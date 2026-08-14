@@ -1,11 +1,15 @@
 import numpy as np
 from mpi4py import MPI
 
-from dendro.distributed_dendrogram_v3 import DistributedDendrogramV3
+from dendro.distributed_dendrogram_v3 import DistributedDendrogramV3, Structure
+
+# TODO: don't break apart leaves on the top dendrogram
+# TODO: implement some sort of min_npix
 
 
 class DistributedDendrogramV6(DistributedDendrogramV3):
     comm = MPI.COMM_WORLD
+    break_apart_leaves = True  # TODO properly implement this control
 
     @staticmethod
     def compute(
@@ -21,7 +25,7 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
         #     return Dendrogram.compute(data.numpy(), **kwargs)
 
         local_dendrogram = self.compute_local_dendrogram(
-            min_npix=min_npix // self.comm.size,
+            # min_npix=min_npix // self.comm.size,
             min_value=min_value,
             # min_delta=min_delta,
             is_independent=is_independent,
@@ -43,7 +47,7 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
             data=self.data,
             ntasks=ntasks,
-            min_npix=min_npix // ntasks,
+            # min_npix=min_npix // ntasks,
             min_value=min_value,
         )
 
@@ -94,10 +98,35 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
         local_dendrogram = self._compute_single_local_dendrogram(local_data, **kwargs)
         return local_dendrogram
 
-    def _compute_single_local_dendrogram(self, *args, **kwargs):
+    def _compute_single_local_dendrogram(
+        self, *args, break_apart_leaves=True, **kwargs
+    ):
         local_dendrogram = super()._compute_single_local_dendrogram(
             *args, **kwargs, isolate_borders=False
         )
+
+        if break_apart_leaves:
+            for leaf in local_dendrogram.leaves:
+                indices = leaf._indices
+                values = leaf._values
+
+                leaf._indices = [indices[0]]
+                leaf._values = [values[0]]
+                leaf._vmin = values[0]
+                leaf._vmax = values[0]
+
+                for i in range(1, len(values)):
+                    new_structure = Structure(
+                        indices=[indices[i]],
+                        values=[values[i]],
+                        dendrogram=local_dendrogram,
+                        idx=len(local_dendrogram._structures_dict),
+                    )
+                    local_dendrogram._structures_dict[new_structure.idx] = new_structure
+                    local_dendrogram.trunk.append(new_structure)
+
+        # cast to numpy
         for structure in local_dendrogram.all_structures:
             structure._indices = np.array(structure._indices)
+
         return local_dendrogram
