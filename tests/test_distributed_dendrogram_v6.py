@@ -208,9 +208,9 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logging.basicConfig(level=logging.INFO)
 
-    test_1D_pseudo_parallel(2, 64, 6, 0.0, 0.2, show=True)
+    # test_1D_pseudo_parallel(2, 64, 6, 0.0, 0.2, show=True)
     # test_1D_pseudo_parallel(2, 33, 0, 0.0, 0.0, show=True)
     # test_1D(2, 33, 0, 0.0, 0.0)
-    # test_2D_pseudo_parallel(2, 32, 1, 0, 0, 0, show=True)
+    test_2D_pseudo_parallel(2, 32, 1, 0, 0, 0, show=True)
     # test_2D(2, 32, 3)
     # test_example_pseudo_parallel(2, 2, 0.1, 3)

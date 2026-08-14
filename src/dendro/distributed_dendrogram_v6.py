@@ -84,7 +84,9 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
         local_idx = idx[local_slices[rank]]
         local_data = np.empty_like(data)
         local_data[...] = np.nan
-        local_data[np.flatnonzero(isfinite)[local_idx]] = data[isfinite][local_idx]
+        local_data.ravel()[np.flatnonzero(isfinite)[local_idx]] = data[isfinite][
+            local_idx
+        ]
         local_count = np.isfinite(local_data).sum()
         self.logger.info(f"Rank {rank} got {local_count} out of {count} data points")
         return local_data
