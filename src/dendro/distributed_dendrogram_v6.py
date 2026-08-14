@@ -59,8 +59,16 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
         self.compute_from_structures(all_structures)
         return self
 
-    def get_local_data(self, data, ntasks, rank):
-        elements_per_task = data.shape[0] // ntasks
+    def get_local_data(self, data, ntasks, rank, **kwargs):
+        # TODO maybe I should cache this some more or less, actually
+        if "min_value" in kwargs.keys():
+            min_value = kwargs.get("min_value", "min")
+            min_value = -np.inf if min_value == "min" else min_value
+            data[data < min_value] = np.nan
+
+        count = np.isfinite(data).sum()
+
+        elements_per_task = count // ntasks
         local_slices = [
             slice(i * elements_per_task, (i + 1) * elements_per_task)
             for i in range(ntasks)
@@ -78,7 +86,9 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
         return local_data
 
     def compute_local_dendrogram_pseudo_parallel(self, data, ntasks, **kwargs):
-        local_data = [self.get_local_data(data, ntasks, rank) for rank in range(ntasks)]
+        local_data = [
+            self.get_local_data(data, ntasks, rank, **kwargs) for rank in range(ntasks)
+        ]
 
         local_dendrograms = [
             self._compute_single_local_dendrogram(_local_data, **kwargs)
@@ -93,7 +103,7 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
 
         assert isinstance(data, np.ndarray) or not data.is_distributed()
 
-        local_data = self.get_local_data(data, comm.size, comm.rank)
+        local_data = self.get_local_data(data, comm.size, comm.rank, **kwargs)
 
         local_dendrogram = self._compute_single_local_dendrogram(local_data, **kwargs)
         return local_dendrogram
