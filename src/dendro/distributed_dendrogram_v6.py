@@ -50,6 +50,7 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
             # min_npix=min_npix // ntasks,
             min_value=min_value,
         )
+        self.local_dendrograms = local_dendrograms
 
         all_structures = []
         for d in local_dendrograms:
@@ -76,23 +77,30 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
         local_slices[-1] = slice(local_slices[-1].start, None)
 
         if not hasattr(self, "__global_data_argsort_result"):
-            self.__global_data_argsort_result = np.argsort(data)
+            self.__global_data_argsort_result = np.argsort(data, axis=None)
         idx = self.__global_data_argsort_result
 
         local_idx = idx[local_slices[rank]]
         local_data = np.empty_like(data)
         local_data[...] = np.nan
-        local_data[local_idx] = data[local_idx]
+        local_data.flat[local_idx] = data.flat[local_idx]
+        local_count = np.isfinite(local_data).sum()
+        self.logger.info(f"Rank {rank} got {local_count} out of {count} data points")
         return local_data
 
     def compute_local_dendrogram_pseudo_parallel(self, data, ntasks, **kwargs):
         local_data = [
             self.get_local_data(data, ntasks, rank, **kwargs) for rank in range(ntasks)
         ]
+        break_apart_leaves = [
+            self.break_apart_leaves and rank < ntasks - 1 for rank in range(ntasks)
+        ]
 
         local_dendrograms = [
-            self._compute_single_local_dendrogram(_local_data, **kwargs)
-            for _local_data in local_data
+            self._compute_single_local_dendrogram(
+                _local_data, **kwargs, break_apart_leaves=_break_apart_leaves
+            )
+            for _local_data, _break_apart_leaves in zip(local_data, break_apart_leaves)
         ]
 
         return local_dendrograms

@@ -113,7 +113,9 @@ def test_1D(mpi_ranks, res, min_npix, min_delta, min_value):
 @pytest.mark.parametrize("min_npix", [0, 16])
 @pytest.mark.parametrize("min_delta", [0, 0.1])
 @pytest.mark.parametrize("min_value", ["min", 0.2])
-def test_2D_pseudo_parallel(ntasks, res, n_peaks, min_npix, min_value, min_delta):
+def test_2D_pseudo_parallel(
+    ntasks, res, n_peaks, min_npix, min_value, min_delta, show=False
+):
     from dendro.utils import get_2d_data
 
     _, _, data = get_2d_data(res, n_peaks)
@@ -129,15 +131,17 @@ def test_2D_pseudo_parallel(ntasks, res, n_peaks, min_npix, min_value, min_delta
     )
     reference_dendrogram = Dendrogram.compute(data.numpy(), **kwargs)
 
-    # import matplotlib.pyplot as plt
-    # from dendro.utils import plot_astrodendro_tree_2D
-    # fig, axs = plt.subplots(2, ntasks)
-    # local_dendrograms = DistributedDendrogramV6.compute_local_dendrogram_pseudo_parallel(data.numpy(), ntasks)
-    # for i, d in enumerate(local_dendrograms):
-    #     plot_astrodendro_tree_2D(axs[0, i], d, d.trunk)
-    # plot_astrodendro_tree_2D(axs[1, 0], dendrogram, dendrogram.trunk)
-    # plot_astrodendro_tree_2D(axs[1, 1], reference_dendrogram, reference_dendrogram.trunk)
-    # plt.show()
+    if show:
+        import matplotlib.pyplot as plt
+        from dendro.utils import plot
+
+        fig, axs = plt.subplots(2, ntasks)
+        local_dendrograms = dendrogram.local_dendrograms
+        for i, d in enumerate(local_dendrograms):
+            plot(axs[0, i], d, d.trunk)
+        plot(axs[1, 0], dendrogram, dendrogram.trunk)
+        plot(axs[1, 1], reference_dendrogram, reference_dendrogram.trunk)
+        plt.show()
 
     compare_dendrograms(reference_dendrogram, dendrogram)
 
@@ -203,9 +207,9 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logging.basicConfig(level=logging.INFO)
 
-    test_1D_pseudo_parallel(2, 128, 0, 0.0, 0.1, show=True)
+    # test_1D_pseudo_parallel(2, 128, 0, 0.0, 0.1, show=True)
     # test_1D_pseudo_parallel(2, 33, 0, 0.0, 0.0, show=True)
     # test_1D(2, 33, 0, 0.0, 0.0)
-    # test_2D_pseudo_parallel(2, 32, 3, 0, 0, 0)
+    test_2D_pseudo_parallel(2, 32, 1, 0, 0, 0, show=True)
     # test_2D(2, 32, 3)
     # test_example_pseudo_parallel(2, 2, 0.1, 3)
