@@ -116,6 +116,8 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
         )
 
         if break_apart_leaves:
+            _strucs_pre_breakup = len(local_dendrogram._structures_dict)
+            _num_leaves = len(local_dendrogram.leaves)
             for leaf in local_dendrogram.leaves:
                 indices = leaf._indices
                 values = leaf._values
@@ -134,6 +136,10 @@ class DistributedDendrogramV6(DistributedDendrogramV3):
                     )
                     local_dendrogram._structures_dict[new_structure.idx] = new_structure
                     local_dendrogram.trunk.append(new_structure)
+            _strucs_post_breakup = len(local_dendrogram._structures_dict)
+            self.logger.info(
+                f"Broke off {_strucs_post_breakup - _strucs_pre_breakup} structures from {_num_leaves} leaves in local dendrogram"
+            )
 
         # cast to numpy
         for structure in local_dendrogram.all_structures:
