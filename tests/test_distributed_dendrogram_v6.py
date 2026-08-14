@@ -78,7 +78,7 @@ def test_1D(mpi_ranks, res, min_npix, min_delta, min_value):
 
     x, data = get_1d_data(res)
 
-    ntasks = data.comm.size
+    data = data.numpy()
 
     kwargs = {
         "min_npix": min_npix,
@@ -87,21 +87,21 @@ def test_1D(mpi_ranks, res, min_npix, min_delta, min_value):
     }
 
     dendrogram = DistributedDendrogramV6.compute(data=data, **kwargs)
-    reference_dendrogram = Dendrogram.compute(data=data.numpy(), **kwargs)
+    reference_dendrogram = Dendrogram.compute(data=data, **kwargs)
 
-    import matplotlib.pyplot as plt
-    from dendro.utils import plot_astrodendro_leaves
+    # import matplotlib.pyplot as plt
+    # from dendro.utils import plot_astrodendro_leaves
 
-    fig, axs = plt.subplots(2, max([ntasks, 2]))
-    _d = DistributedDendrogramV6()
-    _d.data = data
-    local_dendrograms = _d.compute_local_dendrogram(**kwargs)
-    for i, d in enumerate([local_dendrograms]):
-        plot_astrodendro_leaves(axs[0, i], x.numpy(), data.numpy(), d.trunk)
-    plot_astrodendro_leaves(axs[1, 0], x.numpy(), data.numpy(), dendrogram.trunk)
-    plot_astrodendro_leaves(
-        axs[1, 1], x.numpy(), data.numpy(), reference_dendrogram.trunk
-    )
+    # fig, axs = plt.subplots(2, max([ntasks, 2]))
+    # _d = DistributedDendrogramV6()
+    # _d.data = data
+    # local_dendrograms = _d.compute_local_dendrogram(**kwargs)
+    # for i, d in enumerate([local_dendrograms]):
+    #     plot_astrodendro_leaves(axs[0, i], x.numpy(), data, d.trunk)
+    # plot_astrodendro_leaves(axs[1, 0], x.numpy(), data, dendrogram.trunk)
+    # plot_astrodendro_leaves(
+    #     axs[1, 1], x.numpy(), data, reference_dendrogram.trunk
+    # )
     # plt.show()
 
     compare_dendrograms(reference_dendrogram, dendrogram)
@@ -149,9 +149,10 @@ def test_2D(mpi_ranks, res, n_peaks):
     from dendro.utils import get_2d_data
 
     _, _, data = get_2d_data(res, n_peaks)
+    data = data.numpy()
 
     dendrogram = DistributedDendrogramV6.compute(data)
-    reference_dendrogram = Dendrogram.compute(data.numpy())
+    reference_dendrogram = Dendrogram.compute(data)
     compare_dendrograms(reference_dendrogram, dendrogram)
 
 
@@ -202,8 +203,9 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logging.basicConfig(level=logging.INFO)
 
-    # test_1D_pseudo_parallel(2, 32, 6, 0.0, 0.0, show=True)
+    test_1D_pseudo_parallel(4, 32, 0, 0.0, 0.0, show=True)
     # test_1D_pseudo_parallel(2, 33, 0, 0.0, 0.0, show=True)
     # test_1D(2, 33, 0, 0.0, 0.0)
-    # test_2D_pseudo_parallel(4, 32, 3, 0, 0, 0)
-    test_example_pseudo_parallel(2, 2, 0.1, 3)
+    # test_2D_pseudo_parallel(2, 32, 3, 0, 0, 0)
+    # test_2D(2, 32, 3)
+    # test_example_pseudo_parallel(2, 2, 0.1, 3)
