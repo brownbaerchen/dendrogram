@@ -31,9 +31,9 @@ def test_1D_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show=Fa
         from dendro.utils import plot_astrodendro_leaves
 
         fig, axs = plt.subplots(1, 2)
-        plot_astrodendro_leaves(axs, x.numpy(), data.numpy(), dendrogram.trunk)
+        plot_astrodendro_leaves(axs[0], x.numpy(), data.numpy(), dendrogram.trunk)
         plot_astrodendro_leaves(
-            axs, x.numpy(), data.numpy(), reference_dendrogram.trunk
+            axs[1], x.numpy(), data.numpy(), reference_dendrogram.trunk
         )
         plt.show()
 

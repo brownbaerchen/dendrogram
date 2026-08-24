@@ -78,41 +78,7 @@ class DistributedDendrogramV7(Dendrogram):
                     coord = local_indices[rank][idx]
                     data_value = local_data[rank][idx]
 
-                    adjacent = self.get_adjacent(coord, structures)
-
-                    if not adjacent:  # No adjacent structures;  Create new leaf:
-                        # Create leaf
-                        leaf = Structure(
-                            coord, data_value, idx=len(structures), dendrogram=self
-                        )
-
-                        # Add leaf to overall list
-                        structures[leaf.idx] = leaf
-
-                        # Set absolute index of pixel in index map
-                        self.index_map[coord] = leaf.idx
-
-                    elif len(adjacent) == 1:  # Add to existing leaf or branch
-                        # Add point to structure
-                        adjacent[0]._add_pixel(coord, data_value)
-
-                        # Set absolute index of pixel in index map
-                        self.index_map[coord] = adjacent[0].idx
-
-                    else:  # Merge leaves
-                        belongs_to = Structure(
-                            coord,
-                            data_value,
-                            children=adjacent,
-                            idx=len(structures),
-                            dendrogram=self,
-                        )
-
-                        # Add branch to overall list
-                        structures[belongs_to.idx] = belongs_to
-
-                        # Set absolute index of pixel in index map
-                        self.index_map[coord] = belongs_to.idx
+                    self.merge_value(structures, coord, data_value)
 
             return True
 
@@ -125,6 +91,41 @@ class DistributedDendrogramV7(Dendrogram):
             structure for structure in structures.values() if structure.parent is None
         ]
         return self
+
+    def merge_value(self, structures, coord, data_value):
+        adjacent = self.get_adjacent(coord, structures)
+
+        if not adjacent:  # No adjacent structures;  Create new leaf:
+            # Create leaf
+            leaf = Structure(coord, data_value, idx=len(structures), dendrogram=self)
+
+            # Add leaf to overall list
+            structures[leaf.idx] = leaf
+
+            # Set absolute index of pixel in index map
+            self.index_map[coord] = leaf.idx
+
+        elif len(adjacent) == 1:  # Add to existing leaf or branch
+            # Add point to structure
+            adjacent[0]._add_pixel(coord, data_value)
+
+            # Set absolute index of pixel in index map
+            self.index_map[coord] = adjacent[0].idx
+
+        else:  # Merge leaves
+            belongs_to = Structure(
+                coord,
+                data_value,
+                children=adjacent,
+                idx=len(structures),
+                dendrogram=self,
+            )
+
+            # Add branch to overall list
+            structures[belongs_to.idx] = belongs_to
+
+            # Set absolute index of pixel in index map
+            self.index_map[coord] = belongs_to.idx
 
     def get_adjacent(self, index, structures):
         indices_adjacent = Dendrogram.neighbours(self, index)
