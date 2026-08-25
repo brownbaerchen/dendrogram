@@ -61,6 +61,8 @@ class DistributedDendrogramV7(Dendrogram):
             ]
             x2 = [local_data[i][local_argsort[i][1]] for i in ranks_with_two_data_left]
 
+            adjacent = [self.get_adjacent(coord, structures) for coord in x1_coord]
+
             if len(x1) == 0:
                 return False
 
@@ -71,6 +73,8 @@ class DistributedDendrogramV7(Dendrogram):
                     merge_me = True
                 elif len(x1) == len(x2):
                     larger_than_all_x2 = x1[i] > np.max(x2)
+
+                    # check if we are adjacent to any other value being currently merged
                     if larger_than_all_x2:
                         neighbours = self.neighbours(x1_coord[i])
                         adjacent_to_other_value = False
@@ -80,6 +84,15 @@ class DistributedDendrogramV7(Dendrogram):
                                 break
 
                         merge_me = not adjacent_to_other_value
+
+                    # check if a branch is created above
+                    if merge_me:
+                        for j in range(len(x1)):
+                            if j == i:
+                                continue
+                            if len(adjacent[j]) >= 2 and x1[j] > x1[i]:
+                                merge_me = False
+                                break
 
                 if merge_me:
                     idx = local_argsort[rank].pop(0)

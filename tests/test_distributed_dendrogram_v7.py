@@ -74,8 +74,6 @@ def test_2D_v3_pseudo_parallel(
         plot_astrodendro_tree_2D(
             axs[1], reference_dendrogram, reference_dendrogram.trunk
         )
-        plt.pause(1e-9)
-        breakpoint()
         plt.show()
 
     compare_dendrograms(reference_dendrogram, dendrogram)
