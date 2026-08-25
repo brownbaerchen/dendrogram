@@ -20,8 +20,10 @@ class DistributedDendrogramV7(Dendrogram):
         return local_slices
 
     @staticmethod
-    def compute_pseudo_parallel(data, ntasks):
+    def compute_pseudo_parallel(data, ntasks, min_value="min"):
         self = DistributedDendrogramV7()
+
+        min_value = -np.inf if min_value == "min" else min_value
 
         if isinstance(data, ht.DNDarray):
             data = data.numpy()
@@ -35,16 +37,15 @@ class DistributedDendrogramV7(Dendrogram):
 
         # TODO: clean up below snippet
         local_data = [self.data[local_slice] for local_slice in local_slices]
-        local_indices = [
-            np.vstack(np.where(local_data_)).transpose() for local_data_ in local_data
-        ]
-        local_data = [self.data[local_slice].flatten() for local_slice in local_slices]
+        local_keep = [local_data_ > min_value for local_data_ in local_data]
+        local_indices = [np.vstack(np.where(keep)).transpose() for keep in local_keep]
+        local_data_values = [local_data[i][local_keep[i]] for i in range(ntasks)]
 
         # add offsets to local indices
         for i in range(ntasks):
             local_indices[i][:, 0] += local_slices[i].start
 
-        local_argsort = [list(np.argsort(data)[::-1]) for data in local_data]
+        local_argsort = [list(np.argsort(data)[::-1]) for data in local_data_values]
 
         def iteration():
             ranks_with_data_left = [
@@ -54,12 +55,17 @@ class DistributedDendrogramV7(Dendrogram):
                 rank for rank in range(ntasks) if len(local_argsort[rank]) > 1
             ]
 
-            x1 = [local_data[i][local_argsort[i][0]] for i in ranks_with_data_left]
+            x1 = [
+                local_data_values[i][local_argsort[i][0]] for i in ranks_with_data_left
+            ]
             x1_coord = [
                 tuple(local_indices[i][local_argsort[i][0]])
                 for i in ranks_with_data_left
             ]
-            x2 = [local_data[i][local_argsort[i][1]] for i in ranks_with_two_data_left]
+            x2 = [
+                local_data_values[i][local_argsort[i][1]]
+                for i in ranks_with_two_data_left
+            ]
 
             adjacent = [self.get_adjacent(coord, structures) for coord in x1_coord]
 
@@ -87,7 +93,7 @@ class DistributedDendrogramV7(Dendrogram):
 
                     # check if a branch is created above
                     if merge_me:
-                        for j in range(len(x1)):
+                        for j in np.argsort(x1):
                             if j == i:
                                 continue
                             if len(adjacent[j]) >= 2 and x1[j] > x1[i]:
@@ -98,7 +104,7 @@ class DistributedDendrogramV7(Dendrogram):
                     idx = local_argsort[rank].pop(0)
 
                     coord = tuple(local_indices[rank][idx])
-                    data_value = local_data[rank][idx]
+                    data_value = local_data_values[rank][idx]
 
                     self.merge_value(structures, coord, data_value)
 

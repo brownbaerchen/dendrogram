@@ -6,7 +6,7 @@ from dendro.distributed_dendrogram_v7 import DistributedDendrogramV7, Dendrogram
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("res", [32, 33, 64])
 @pytest.mark.parametrize("min_npix", [0])
-@pytest.mark.parametrize("min_delta", [0])
+@pytest.mark.parametrize("min_delta", [0, 0.1, 0.5])
 @pytest.mark.parametrize("min_value", ["min"])
 def test_1D_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show=False):
     from dendro.utils import get_1d_data, compare_dendrograms
@@ -15,13 +15,13 @@ def test_1D_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show=Fa
 
     kwargs = {
         "data": data.numpy(),
-        "min_npix": min_npix,
+        # "min_npix": min_npix,
         "min_value": min_value,
-        "min_delta": min_delta,
+        # "min_delta": min_delta,
     }
 
     dendrogram = DistributedDendrogramV7.compute_pseudo_parallel(
-        data=data, ntasks=ntasks
+        ntasks=ntasks, **kwargs
     )
     reference_dendrogram = Dendrogram.compute(**kwargs)
 
@@ -44,7 +44,7 @@ def test_1D_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show=Fa
 @pytest.mark.parametrize("res", [32, 64])
 @pytest.mark.parametrize("n_peaks", [1, 2, 3, 4])
 @pytest.mark.parametrize("min_npix", [0])
-@pytest.mark.parametrize("min_delta", [0])
+@pytest.mark.parametrize("min_delta", [0, 0.1])
 @pytest.mark.parametrize("min_value", ["min"])
 def test_2D_v3_pseudo_parallel(
     ntasks, res, n_peaks, min_npix, min_value, min_delta, show=False
@@ -54,15 +54,14 @@ def test_2D_v3_pseudo_parallel(
     _, _, data = get_2d_data(res, n_peaks)
 
     kwargs = {
-        "min_npix": min_npix,
+        # "min_npix": min_npix,
         "min_value": min_value,
-        "min_delta": min_delta,
+        # "min_delta": min_delta,
     }
 
     reference_dendrogram = Dendrogram.compute(data.numpy(), **kwargs)
     dendrogram = DistributedDendrogramV7.compute_pseudo_parallel(
-        data.numpy(),
-        ntasks,  # **kwargs
+        data.numpy(), ntasks, **kwargs
     )
 
     if show:
@@ -112,6 +111,6 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logger = logging.getLogger("Dendrogram").setLevel(logging.DEBUG)
         # logger..basicConfig(level=logging.DEBUG)
-    # test_1D_pseudo_parallel(32, 64, 0, 0, 0, show=True)
-    test_2D_v3_pseudo_parallel(4, 64, 4, 0, 0, 0, show=True)
+    # test_1D_pseudo_parallel(32, 64, 0, 0, 0.1, show=True)
+    test_2D_v3_pseudo_parallel(8, 64, 4, 0, 0, 0, show=True)
     # test_example_pseudo_parallel(2, -1e9, 0, 0)
