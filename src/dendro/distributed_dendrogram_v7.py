@@ -1,10 +1,14 @@
 import heat as ht
 import numpy as np
 
-from astrodendro.dendrogram import Dendrogram, Structure
+from astrodendro.dendrogram import Dendrogram, Structure, _make_trunk, _sorted_by_idx
+
+from dendro.distributed_dendrogram_v3 import get_logger
 
 
 class DistributedDendrogramV7(Dendrogram):
+    logger = get_logger()
+
     @staticmethod
     def get_local_slice(shape, ntasks):
         elements_per_task = shape[0] // ntasks
@@ -29,10 +33,13 @@ class DistributedDendrogramV7(Dendrogram):
 
         local_slices = self.get_local_slice(data.shape, ntasks)
 
+        # TODO: clean up below snippet
         local_data = [self.data[local_slice] for local_slice in local_slices]
         local_indices = [
             np.vstack(np.where(local_data_)).transpose() for local_data_ in local_data
         ]
+        local_data = [self.data[local_slice].flatten() for local_slice in local_slices]
+
         # add offsets to local indices
         for i in range(ntasks):
             local_indices[i][:, 0] += local_slices[i].start
@@ -49,7 +56,8 @@ class DistributedDendrogramV7(Dendrogram):
 
             x1 = [local_data[i][local_argsort[i][0]] for i in ranks_with_data_left]
             x1_coord = [
-                local_indices[i][local_argsort[i][0]] for i in ranks_with_data_left
+                tuple(local_indices[i][local_argsort[i][0]])
+                for i in ranks_with_data_left
             ]
             x2 = [local_data[i][local_argsort[i][1]] for i in ranks_with_two_data_left]
 
@@ -70,26 +78,34 @@ class DistributedDendrogramV7(Dendrogram):
                             if neighbour in x1_coord:
                                 adjacent_to_other_value = True
                                 break
+
                         merge_me = not adjacent_to_other_value
 
                 if merge_me:
                     idx = local_argsort[rank].pop(0)
 
-                    coord = local_indices[rank][idx]
+                    coord = tuple(local_indices[rank][idx])
                     data_value = local_data[rank][idx]
 
                     self.merge_value(structures, coord, data_value)
 
             return True
 
+        num_iter = 0
         while True:
             values_left = iteration()
+            num_iter += 1
             if not values_left:
+                self.logger.info(
+                    f"Finished computing dendrogram with {data.size} values after {num_iter} iterations"
+                )
                 break
 
         self._trunk = [
             structure for structure in structures.values() if structure.parent is None
         ]
+        self._structures_dict = structures
+        self.make_output_astrodendro_compatible(None)
         return self
 
     def merge_value(self, structures, coord, data_value):
@@ -104,6 +120,7 @@ class DistributedDendrogramV7(Dendrogram):
 
             # Set absolute index of pixel in index map
             self.index_map[coord] = leaf.idx
+            self.logger.debug(f"New leaf at {coord} with index {leaf.idx}")
 
         elif len(adjacent) == 1:  # Add to existing leaf or branch
             # Add point to structure
@@ -111,8 +128,11 @@ class DistributedDendrogramV7(Dendrogram):
 
             # Set absolute index of pixel in index map
             self.index_map[coord] = adjacent[0].idx
+            self.logger.debug(
+                f"Merging value at {coord} into structure {adjacent[0].idx}"
+            )
 
-        else:  # Merge leaves
+        else:  # Create branch
             belongs_to = Structure(
                 coord,
                 data_value,
@@ -126,6 +146,9 @@ class DistributedDendrogramV7(Dendrogram):
 
             # Set absolute index of pixel in index map
             self.index_map[coord] = belongs_to.idx
+            self.logger.debug(
+                f"New branch at {coord} with index {belongs_to.idx} with children {[child.idx for child in belongs_to.children]}"
+            )
 
     def get_adjacent(self, index, structures):
         indices_adjacent = Dendrogram.neighbours(self, index)
@@ -133,4 +156,23 @@ class DistributedDendrogramV7(Dendrogram):
             self.index_map[c] for c in indices_adjacent if self.index_map[c] > -1
         ]
         adjacent = [structures[a].ancestor for a in adjacent]
+        # Remove duplicates
+        adjacent = _sorted_by_idx(set(adjacent))
+
         return adjacent
+
+    def make_output_astrodendro_compatible(self, is_independent):
+
+        if isinstance(self.data, ht.DNDarray):
+            self.data = self.data.numpy()
+
+        # Remove border from index map
+        s = tuple(slice(0, s, 1) for s in self.data.shape)
+        self.index_map = self.index_map[s]
+
+        # breakpoint()
+        _make_trunk(
+            self,
+            {i: structure for i, structure in enumerate(self.all_structures)},
+            is_independent=lambda x: True,
+        )
