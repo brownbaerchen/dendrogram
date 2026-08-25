@@ -1,7 +1,13 @@
 import heat as ht
 import numpy as np
 
-from astrodendro.dendrogram import Dendrogram, Structure, _make_trunk, _sorted_by_idx
+from astrodendro.dendrogram import (
+    Dendrogram,
+    Structure,
+    _make_trunk,
+    _sorted_by_idx,
+    pruning,
+)
 
 from dendro.distributed_dendrogram_v3 import get_logger
 
@@ -20,10 +26,20 @@ class DistributedDendrogramV7(Dendrogram):
         return local_slices
 
     @staticmethod
-    def compute_pseudo_parallel(data, ntasks, min_value="min"):
+    def compute_pseudo_parallel(
+        data, ntasks, min_value="min", min_delta=0, min_npix=0, is_independent=None
+    ):
         self = DistributedDendrogramV7()
 
         min_value = -np.inf if min_value == "min" else min_value
+
+        tests = [pruning.min_delta(min_delta), pruning.min_npix(min_npix)]
+        if is_independent is not None:
+            if hasattr(is_independent, "__iter__"):
+                tests.extend(is_independent)
+            else:
+                tests.append(is_independent)
+        is_independent = pruning.all_true(tests)
 
         if isinstance(data, ht.DNDarray):
             data = data.numpy()
@@ -106,7 +122,7 @@ class DistributedDendrogramV7(Dendrogram):
                     coord = tuple(local_indices[rank][idx])
                     data_value = local_data_values[rank][idx]
 
-                    self.merge_value(structures, coord, data_value)
+                    self.merge_value(structures, coord, data_value, is_independent)
 
             return True
 
@@ -116,7 +132,7 @@ class DistributedDendrogramV7(Dendrogram):
             num_iter += 1
             if not values_left:
                 self.logger.info(
-                    f"Finished computing dendrogram with {data.size} values after {num_iter} iterations"
+                    f"Finished computing dendrogram with {data[data > min_value].size} values after {num_iter} iterations"
                 )
                 break
 
@@ -124,10 +140,10 @@ class DistributedDendrogramV7(Dendrogram):
             structure for structure in structures.values() if structure.parent is None
         ]
         self._structures_dict = structures
-        self.make_output_astrodendro_compatible(None)
+        self.make_output_astrodendro_compatible(is_independent)
         return self
 
-    def merge_value(self, structures, coord, data_value):
+    def merge_value(self, structures, coord, data_value, is_independent):
         adjacent = self.get_adjacent(coord, structures)
 
         if not adjacent:  # No adjacent structures;  Create new leaf:
@@ -152,19 +168,63 @@ class DistributedDendrogramV7(Dendrogram):
             )
 
         else:  # Create branch
-            belongs_to = Structure(
-                coord,
-                data_value,
-                children=adjacent,
-                idx=len(structures),
-                dendrogram=self,
-            )
+            # At this stage, the adjacent structures might consist of an
+            # arbitrary number of leaves and branches.
 
-            # Add branch to overall list
-            structures[belongs_to.idx] = belongs_to
+            # Find all leaves that are not important enough to be
+            # kept separate. These leaves will now be treated the
+            # same as the pixel under consideration
+            merge = [
+                structure
+                for structure in adjacent
+                if structure.is_leaf
+                and (
+                    structure.vmax == data_value
+                    or not is_independent(structure, index=coord, value=data_value)
+                )
+            ]
+
+            # Remove merges from list of adjacent structures
+            for structure in merge:
+                adjacent.remove(structure)
+
+            # Now, figure out what object this pixel belongs to
+            # How many significant adjacent structures are left?
+
+            if not adjacent:  # if len(adjacent) == 0:
+                # There are no separate leaves left (and no branches), so pick the
+                # first one as the reference and merge all the others onto it
+                belongs_to = merge.pop()
+                belongs_to._add_pixel(coord, data_value)
+            elif len(adjacent) == 1:
+                # There is one significant adjacent leaf/branch left.
+                belongs_to = adjacent[0]
+                belongs_to._add_pixel(coord, data_value)
+            else:
+                # Create a branch
+                belongs_to = Structure(
+                    coord,
+                    data_value,
+                    children=adjacent,
+                    idx=len(structures),
+                    dendrogram=self,
+                )
+                # Add branch to overall list
+                structures[belongs_to.idx] = belongs_to
 
             # Set absolute index of pixel in index map
             self.index_map[coord] = belongs_to.idx
+
+            # Add all insignificant leaves in 'merge' to the same object as this pixel:
+            for m in merge:
+                # print "Merging leaf %i onto leaf %i" % (i, idx)
+                # Remove leaf
+                structures.pop(m.idx)
+                # Merge the insignificant structure that this pixel now belongs to:
+                belongs_to._merge(m)
+                # Update index map
+                m._fill_footprint(self.index_map, belongs_to.idx)
+
             self.logger.debug(
                 f"New branch at {coord} with index {belongs_to.idx} with children {[child.idx for child in belongs_to.children]}"
             )
@@ -193,5 +253,5 @@ class DistributedDendrogramV7(Dendrogram):
         _make_trunk(
             self,
             {i: structure for i, structure in enumerate(self.all_structures)},
-            is_independent=lambda x: True,
+            is_independent=is_independent,
         )

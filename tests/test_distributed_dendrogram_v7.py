@@ -80,10 +80,10 @@ def test_2D_v3_pseudo_parallel(
 
 @pytest.mark.skip
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
-@pytest.mark.parametrize("min_value", [-1e9])
+@pytest.mark.parametrize("min_value", [2])
 @pytest.mark.parametrize("min_delta", [0])
 @pytest.mark.parametrize("min_npix", [0])  # 10
-def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix):
+def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix, show=False):
     from astropy.io.fits import getdata
     import astrodendro
     import numpy as np
@@ -96,12 +96,20 @@ def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix):
 
     kwargs = {
         "min_value": min_value,
-        "min_delta": min_delta,
-        "min_npix": min_npix,
+        # "min_delta": min_delta,
+        # "min_npix": min_npix,
     }
 
     d_ref = astrodendro.Dendrogram.compute(data, **kwargs)
-    d = DistributedDendrogramV7.compute_pseudo_parallel(data, ntasks)  # , **kwargs)
+    d = DistributedDendrogramV7.compute_pseudo_parallel(data, ntasks, **kwargs)
+    if show:
+        import matplotlib.pyplot as plt
+        from dendro.utils import plot_astrodendro_tree_2D
+
+        fig, axs = plt.subplots(1, 2, sharex=True, sharey=True)
+        plot_astrodendro_tree_2D(axs[0], d, d.trunk)
+        plot_astrodendro_tree_2D(axs[1], d_ref, d_ref.trunk)
+        plt.show()
     compare_dendrograms(d_ref, d)
 
 
@@ -111,6 +119,6 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logger = logging.getLogger("Dendrogram").setLevel(logging.DEBUG)
         # logger..basicConfig(level=logging.DEBUG)
-    # test_1D_pseudo_parallel(32, 64, 0, 0, 0.1, show=True)
-    test_2D_v3_pseudo_parallel(8, 64, 4, 0, 0, 0, show=True)
-    # test_example_pseudo_parallel(2, -1e9, 0, 0)
+    test_1D_pseudo_parallel(32, 64, 0, 0, 0.1, show=True)
+    # test_2D_v3_pseudo_parallel(8, 64, 4, 0, 0, 0, show=True)
+    test_example_pseudo_parallel(2, 2, 0, 0, show=True)
