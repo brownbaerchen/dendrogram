@@ -15,11 +15,14 @@ def get_logger():
             record.rank = ht.comm.rank
             return super().format(record)
 
-    handler = logging.StreamHandler()
-    handler.setFormatter(MPIFormatter("[Rank %(rank)3d] %(levelname)s: %(message)s"))
     logger = logging.getLogger("Dendrogram")
-    logger.addHandler(handler)
-    logger.propagate = False
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            MPIFormatter("[Rank %(rank)3d] %(levelname)s: %(message)s")
+        )
+        logger.addHandler(handler)
+        logger.propagate = False
     return logger
 
 
@@ -484,16 +487,14 @@ class DistributedDendrogramV3(Dendrogram):
                 is_independent=is_independent,
             )
 
-            # from dendro.utils import plot
+            # from dendro.utils import plot_astrodendro_leaves
             # import matplotlib.pyplot as plt
-            # if 'fig' not in locals():
-            #     fig, axs = plt.subplots(1, 2)
-            # plot(axs[0], self, merged_structures, plot_children=False)
-            # plot(axs[1], self, structures, plot_children=False)
+            # fig, axs = plt.subplots(1, 2)
+            # plot_astrodendro_leaves(axs[0], np.arange(self.data.shape[0]), self.data, merged_structures)
+            # plot_astrodendro_leaves(axs[1], np.arange(self.data.shape[0]), self.data, structures)
             # plt.pause(1e-9)
             # breakpoint()
-            # for ax in axs:
-            #     ax.cla()
+            # fig.clf()
 
         t1 = perf_counter()
         self.time_merge_dendrograms = t1 - t0
