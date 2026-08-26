@@ -84,7 +84,6 @@ def test_2D_v3_pseudo_parallel(
     compare_dendrograms(reference_dendrogram, dendrogram)
 
 
-@pytest.mark.skip
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("min_value", [2])
 @pytest.mark.parametrize("min_delta", [0])
