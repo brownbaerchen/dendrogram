@@ -15,11 +15,14 @@ def get_logger():
             record.rank = ht.comm.rank
             return super().format(record)
 
-    handler = logging.StreamHandler()
-    handler.setFormatter(MPIFormatter("[Rank %(rank)3d] %(levelname)s: %(message)s"))
     logger = logging.getLogger("Dendrogram")
-    logger.addHandler(handler)
-    logger.propagate = False
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            MPIFormatter("[Rank %(rank)3d] %(levelname)s: %(message)s")
+        )
+        logger.addHandler(handler)
+        logger.propagate = False
     return logger
 
 
