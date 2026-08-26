@@ -96,8 +96,10 @@ class DistributedDendrogramV7(Dendrogram):
                 elif len(x1) == len(x2):
                     larger_than_all_x2 = x1[i] > np.max(x2)
 
+                    merge_me = larger_than_all_x2
+
                     # check if we are adjacent to any other value being currently merged
-                    if larger_than_all_x2:
+                    if merge_me:  # TODO: I may not need this
                         neighbours = self.neighbours(x1_coord[i])
                         adjacent_to_other_value = False
                         for neighbour in neighbours:

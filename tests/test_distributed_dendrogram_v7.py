@@ -5,7 +5,7 @@ from dendro.distributed_dendrogram_v7 import DistributedDendrogramV7, Dendrogram
 
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("res", [32, 33, 64])
-@pytest.mark.parametrize("min_npix", [0])
+@pytest.mark.parametrize("min_npix", [0, 3, 20])
 @pytest.mark.parametrize("min_delta", [0, 0.1, 0.5])
 @pytest.mark.parametrize("min_value", ["min"])
 @pytest.mark.parametrize("random", [True, False])
@@ -86,8 +86,8 @@ def test_2D_v3_pseudo_parallel(
 
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("min_value", [2])
-@pytest.mark.parametrize("min_delta", [0])
-@pytest.mark.parametrize("min_npix", [0])  # 10
+@pytest.mark.parametrize("min_delta", [1])
+@pytest.mark.parametrize("min_npix", [10])
 def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix, show=False):
     from astropy.io.fits import getdata
     import astrodendro
@@ -124,6 +124,6 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logger = logging.getLogger("Dendrogram").setLevel(logging.DEBUG)
         # logger..basicConfig(level=logging.DEBUG)
-    test_1D_pseudo_parallel(2, 32, 0.0, 0, 0.1, show=True, random=True)
+    # test_1D_pseudo_parallel(2, 32, 0.0, 0, 0.1, show=True, random=True)
     # test_2D_v3_pseudo_parallel(8, 64, 4, 0, 0, 0, show=True)
-    # test_example_pseudo_parallel(2, 2, 0, 0, show=True)
+    test_example_pseudo_parallel(64, 2, 1, 10, show=True)
