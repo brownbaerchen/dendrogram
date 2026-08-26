@@ -63,7 +63,9 @@ class DistributedDendrogramV7(Dendrogram):
 
         local_argsort = [list(np.argsort(data)[::-1]) for data in local_data_values]
 
-        def iteration():
+        num_iter = 0
+        while True:
+            # "communication" before the iteration
             ranks_with_data_left = [
                 rank for rank in range(ntasks) if len(local_argsort[rank]) > 0
             ]
@@ -86,47 +88,14 @@ class DistributedDendrogramV7(Dendrogram):
             adjacent = [self.get_adjacent(coord, structures) for coord in x1_coord]
 
             if len(x1) == 0:
-                return False
+                self.logger.info(
+                    f"Finished computing dendrogram with {data[data > min_value].size} values after {num_iter} iterations"
+                )
+                break
 
+            # merge local values independently
             for i, rank in enumerate(ranks_with_data_left):
-                merge_me = False
-                largest_value = x1[i] == np.max(x1)
-                if largest_value:
-                    merge_me = True
-                elif len(x1) == len(x2):
-                    larger_than_all_x2 = x1[i] > np.max(x2)
-
-                    merge_me = larger_than_all_x2
-
-                    # check if we are adjacent to any other value being currently merged
-                    if merge_me:  # TODO: I may not need this
-                        neighbours = self.neighbours(x1_coord[i])
-                        adjacent_to_other_value = False
-                        for neighbour in neighbours:
-                            if neighbour in x1_coord:
-                                adjacent_to_other_value = True
-                                break
-
-                        merge_me = not adjacent_to_other_value
-
-                    # check if a branch is created above
-                    if merge_me:
-                        for j in np.argsort(x1):
-                            if j == i:
-                                continue
-                            structures_both_adjacent_to = np.intersect1d(
-                                [structure.idx for structure in adjacent[i]],
-                                [structure.idx for structure in adjacent[j]],
-                            )
-
-                            # # don't merge if branch is created above
-                            # if len(adjacent[j]) >= 2 and x1[j] > x1[i]:
-                            #     merge_me = False
-                            #     break
-                            # don't merge if a larger value would be merged with the same structure
-                            if len(structures_both_adjacent_to) > 0 and x1[j] > x1[i]:
-                                merge_me = False
-                                break
+                merge_me = self.can_merge(i, x1, x2, x1_coord, adjacent)
 
                 if merge_me:
                     idx = local_argsort[rank].pop(0)
@@ -136,17 +105,9 @@ class DistributedDendrogramV7(Dendrogram):
 
                     self.merge_value(structures, coord, data_value, is_independent)
 
-            return True
+            # index map needs to be communicated in distributed memory parallelisation here
 
-        num_iter = 0
-        while True:
-            values_left = iteration()
             num_iter += 1
-            if not values_left:
-                self.logger.info(
-                    f"Finished computing dendrogram with {data[data > min_value].size} values after {num_iter} iterations"
-                )
-                break
 
         self._trunk = [
             structure for structure in structures.values() if structure.parent is None
@@ -154,6 +115,49 @@ class DistributedDendrogramV7(Dendrogram):
         self._structures_dict = structures
         self.make_output_astrodendro_compatible(is_independent)
         return self
+
+    def can_merge(self, i, x1, x2, x1_coord, adjacent):
+        merge_me = False
+
+        largest_value = x1[i] == np.max(x1)
+        if largest_value:
+            merge_me = True
+        elif len(x1) == len(x2):
+            larger_than_all_x2 = x1[i] > np.max(x2)
+
+            merge_me = larger_than_all_x2
+
+            # check if we are adjacent to any other value being currently merged
+            if merge_me:  # TODO: I may not need this
+                neighbours = self.neighbours(x1_coord[i])
+                adjacent_to_other_value = False
+                for neighbour in neighbours:
+                    if neighbour in x1_coord:
+                        adjacent_to_other_value = True
+                        break
+
+                merge_me = not adjacent_to_other_value
+
+            # check if a branch is created above
+            if merge_me:
+                for j in np.argsort(x1):
+                    if j == i:
+                        continue
+                    structures_both_adjacent_to = np.intersect1d(
+                        [structure.idx for structure in adjacent[i]],
+                        [structure.idx for structure in adjacent[j]],
+                    )
+
+                    # # don't merge if branch is created above
+                    # if len(adjacent[j]) >= 2 and x1[j] > x1[i]:
+                    #     merge_me = False
+                    #     break
+                    # don't merge if a larger value would be merged with the same structure
+                    if len(structures_both_adjacent_to) > 0 and x1[j] > x1[i]:
+                        merge_me = False
+                        break
+
+        return merge_me
 
     def merge_value(self, structures, coord, data_value, is_independent):
         adjacent = self.get_adjacent(coord, structures)

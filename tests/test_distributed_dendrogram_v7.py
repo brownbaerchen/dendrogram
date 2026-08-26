@@ -124,6 +124,6 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logger = logging.getLogger("Dendrogram").setLevel(logging.DEBUG)
         # logger..basicConfig(level=logging.DEBUG)
-    # test_1D_pseudo_parallel(2, 32, 0.0, 0, 0.1, show=True, random=True)
+    test_1D_pseudo_parallel(2, 32, 0.0, 0, 0.1, show=True, random=False)
     # test_2D_v3_pseudo_parallel(8, 64, 4, 0, 0, 0, show=True)
-    test_example_pseudo_parallel(64, 2, 1, 10, show=True)
+    # test_example_pseudo_parallel(64, 2, 1, 10, show=True)
