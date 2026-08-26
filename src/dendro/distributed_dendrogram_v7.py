@@ -117,12 +117,12 @@ class DistributedDendrogramV7(Dendrogram):
                                 [structure.idx for structure in adjacent[j]],
                             )
 
-                            # don't merge if branch is created above
-                            if len(adjacent[j]) >= 2 and x1[j] > x1[i]:
-                                merge_me = False
-                                break
+                            # # don't merge if branch is created above
+                            # if len(adjacent[j]) >= 2 and x1[j] > x1[i]:
+                            #     merge_me = False
+                            #     break
                             # don't merge if a larger value would be merged with the same structure
-                            elif len(structures_both_adjacent_to) > 0 and x1[j] > x1[i]:
+                            if len(structures_both_adjacent_to) > 0 and x1[j] > x1[i]:
                                 merge_me = False
                                 break
 
