@@ -8,10 +8,16 @@ from dendro.distributed_dendrogram_v7 import DistributedDendrogramV7, Dendrogram
 @pytest.mark.parametrize("min_npix", [0])
 @pytest.mark.parametrize("min_delta", [0, 0.1, 0.5])
 @pytest.mark.parametrize("min_value", ["min"])
-def test_1D_pseudo_parallel(ntasks, res, min_npix, min_delta, min_value, show=False):
+@pytest.mark.parametrize("random", [True, False])
+def test_1D_pseudo_parallel(
+    ntasks, res, min_npix, min_delta, min_value, random, show=False
+):
     from dendro.utils import get_1d_data, compare_dendrograms
 
     x, data = get_1d_data(res)
+    if random:
+        ht.random.seed(99)
+        data[...] = ht.random.rand(*data.shape)
 
     kwargs = {
         "data": data.numpy(),
@@ -119,6 +125,6 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logger = logging.getLogger("Dendrogram").setLevel(logging.DEBUG)
         # logger..basicConfig(level=logging.DEBUG)
-    test_1D_pseudo_parallel(32, 64, 0, 0, 0.1, show=True)
+    test_1D_pseudo_parallel(2, 32, 0.0, 0, 0.1, show=True, random=True)
     # test_2D_v3_pseudo_parallel(8, 64, 4, 0, 0, 0, show=True)
-    test_example_pseudo_parallel(2, 2, 0, 0, show=True)
+    # test_example_pseudo_parallel(2, 2, 0, 0, show=True)
