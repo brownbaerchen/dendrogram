@@ -487,14 +487,16 @@ class DistributedDendrogramV3(Dendrogram):
                 is_independent=is_independent,
             )
 
-            # from dendro.utils import plot_astrodendro_leaves
+            # from dendro.utils import plot
             # import matplotlib.pyplot as plt
-            # fig, axs = plt.subplots(1, 2)
-            # plot_astrodendro_leaves(axs[0], np.arange(self.data.shape[0]), self.data, merged_structures)
-            # plot_astrodendro_leaves(axs[1], np.arange(self.data.shape[0]), self.data, structures)
+            # if 'fig' not in locals():
+            #     fig, axs = plt.subplots(1, 2)
+            # plot(axs[0], self, merged_structures, plot_children=False)
+            # plot(axs[1], self, structures, plot_children=False)
             # plt.pause(1e-9)
             # breakpoint()
-            # fig.clf()
+            # for ax in axs:
+            #     ax.cla()
 
         t1 = perf_counter()
         self.time_merge_dendrograms = t1 - t0
