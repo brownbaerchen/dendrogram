@@ -133,7 +133,7 @@ def test_2D_pseudo_parallel(
 @pytest.mark.parametrize("min_npix", [0, 20])
 @pytest.mark.parametrize("min_delta", [0, 0.1])
 @pytest.mark.parametrize("min_value", ["min", 0.2])
-def test_2D(ntasks, res, n_peaks, min_npix, min_value, min_delta, show=False):
+def test_2D(mpi_ranks, res, n_peaks, min_npix, min_value, min_delta, show=False):
     from dendro.utils import get_2d_data, compare_dendrograms
 
     _, _, data = get_2d_data(res, n_peaks)
@@ -237,6 +237,6 @@ if __name__ == "__main__":
     # test_1D(4, 32, 0.2, 0.2, "min", show=True, random=False)
     # test_1D_pseudo_parallel(4, 64, 0.1, 60, "min", show=True, random=False)
     # test_2D_pseudo_parallel(8, 64, 4, 0, 0, 0, show=True)
-    test_2D(8, 64, 4, 00, 0.0, 0.0, show=False)
-    # test_example_pseudo_parallel(2, 2, 1, 10, show=True)
+    # test_2D(8, 64, 4, 00, 0.0, 0.0, show=False)
+    test_example_pseudo_parallel(2, 2, 1, 10, show=True)
     # test_example(128, 2, 1, 10, show=False)

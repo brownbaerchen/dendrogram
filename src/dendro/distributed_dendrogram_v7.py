@@ -221,7 +221,7 @@ class DistributedDendrogramV7(Dendrogram):
                     structure = structures[structure_idx]
                     buff = (
                         structure_idx,
-                        structure._values,  # TODO: communicate only last (latest) value
+                        structure._values,  # TODO: communicate only last (latest) value. But what about merges?
                         structure._indices,  # TODO: communicate only last (latest) index
                         [child.idx for child in structure.children],
                     )
