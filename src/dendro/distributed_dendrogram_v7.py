@@ -123,9 +123,13 @@ class DistributedDendrogramV7(Dendrogram):
 
     @staticmethod
     def compute(data, min_value="min", min_delta=0, min_npix=0, is_independent=None):
-        assert isinstance(data, ht.DNDarray)
-
         self = DistributedDendrogramV7()
+
+        if not isinstance(data, ht.DNDarray):
+            data = ht.array(data, split=0)
+            self.logger.debug(
+                f"Cast input data of shape {data.shape} to DNDarray split along {data.split}"
+            )
 
         min_value = -np.inf if min_value == "min" else min_value
 
@@ -204,7 +208,6 @@ class DistributedDendrogramV7(Dendrogram):
                 changed_structure = None
                 merged_structures = []
 
-            # index map needs to be communicated in distributed memory parallelisation here
             global_structure_changes = self.comm.allgather(
                 changed_structure.idx if changed_structure else None
             )
@@ -218,8 +221,8 @@ class DistributedDendrogramV7(Dendrogram):
                     structure = structures[structure_idx]
                     buff = (
                         structure_idx,
-                        structure._values,
-                        structure._indices,
+                        structure._values,  # TODO: communicate only last (latest) value
+                        structure._indices,  # TODO: communicate only last (latest) index
                         [child.idx for child in structure.children],
                     )
                 else:
@@ -274,11 +277,15 @@ class DistributedDendrogramV7(Dendrogram):
 
             num_iter += 1
 
+        self.logger.debug(
+            f"Found {len(structures)} structures, starting to make compatible with astrodendro"
+        )
         self._trunk = [
             structure for structure in structures.values() if structure.parent is None
         ]
         self._structures_dict = structures
         self.make_output_astrodendro_compatible(is_independent)
+        self.logger.debug("Finished making output astrodendro compatible")
         return self
 
     def can_merge(self, rank, x1, x2, x1_coord, adjacent):
