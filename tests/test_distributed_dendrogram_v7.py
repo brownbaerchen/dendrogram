@@ -74,7 +74,6 @@ def test_1D(mpi_ranks, res, min_npix, min_delta, min_value, random, show=False):
         assert np.allclose(all_index_maps[i], all_index_maps[0]), (
             f"Index map on rank {i} does not match with the one on rank 0"
         )
-
     if show:
         import matplotlib.pyplot as plt
 
@@ -104,9 +103,9 @@ def test_2D_pseudo_parallel(
     _, _, data = get_2d_data(res, n_peaks)
 
     kwargs = {
-        # "min_npix": min_npix,
+        "min_npix": min_npix,
         "min_value": min_value,
-        # "min_delta": min_delta,
+        "min_delta": min_delta,
     }
 
     reference_dendrogram = Dendrogram.compute(data.numpy(), **kwargs)
@@ -166,7 +165,7 @@ if __name__ == "__main__":
     import logging
 
     logger = logging.getLogger("Dendrogram").setLevel(logging.DEBUG)
-    test_1D(4, 32, 0.0, 0, "min", show=True, random=False)
+    test_1D(4, 32, 0.2, 0.2, "min", show=True, random=False)
     # test_1D_pseudo_parallel(4, 64, 0.1, 60, "min", show=True, random=False)
     # test_2D_v3_pseudo_parallel(8, 64, 4, 0, 0, 0, show=True)
     # test_example_pseudo_parallel(128, 2, 1, 10, show=True)

@@ -197,16 +197,19 @@ class DistributedDendrogramV7(Dendrogram):
                 coord = tuple(local_indices[idx])
                 data_value = local_data_values[idx]
 
-                changed_structure = self.merge_value(
+                changed_structure, merged_structures = self.merge_value(
                     structures, coord, data_value, is_independent
                 )
             else:
                 changed_structure = None
+                merged_structures = []
 
             # index map needs to be communicated in distributed memory parallelisation here
-            # TODO: communicate merging of structures
             global_structure_changes = self.comm.allgather(
                 changed_structure.idx if changed_structure else None
+            )
+            global_merged_structures = self.comm.allgather(
+                [me.idx for me in merged_structures]
             )
             for changed_rank, structure_idx in enumerate(global_structure_changes):
                 if structure_idx is None:
@@ -255,6 +258,16 @@ class DistributedDendrogramV7(Dendrogram):
                     self.logger.debug(
                         f"Received changes to structure {structures[idx].idx} with {len(structures[idx]._values)} values and children {[me.idx for me in structures[idx].children]} from rank {changed_rank}"
                     )
+
+                    # remove merged structures
+                    merged_structure_idx = global_merged_structures[changed_rank]
+                    belongs_to = structures[idx]
+                    for m_idx in merged_structure_idx:
+                        m = structures[m_idx]
+                        structures.pop(m.idx)
+                        self.logger.debug(
+                            f"Removed leaf {m.idx} as it was merged into {belongs_to.idx}"
+                        )
             # if self.comm.rank == 0:
             #     # print(self.index_map)
             #     breakpoint()
@@ -330,7 +343,7 @@ class DistributedDendrogramV7(Dendrogram):
             # Set absolute index of pixel in index map
             self.index_map[coord] = leaf.idx
             self.logger.debug(f"New leaf at {coord} with index {leaf.idx}")
-            return leaf
+            return leaf, []
 
         elif len(adjacent) == 1:  # Add to existing leaf or branch
             # Add point to structure
@@ -341,7 +354,7 @@ class DistributedDendrogramV7(Dendrogram):
             self.logger.debug(
                 f"Merging value at {coord} into structure {adjacent[0].idx} with {len(adjacent[0]._values)} values"
             )
-            return adjacent[0]
+            return adjacent[0], []
 
         else:  # Create branch
             # At this stage, the adjacent structures might consist of an
@@ -407,9 +420,9 @@ class DistributedDendrogramV7(Dendrogram):
                 self.logger.debug(
                     f"Removed leaf {m.idx} and merged into {belongs_to.idx}"
                 )
-            return belongs_to
+            return belongs_to, merge
 
-        return None
+        return None, None
 
     def get_adjacent(self, index, structures):
         indices_adjacent = Dendrogram.neighbours(self, index)
