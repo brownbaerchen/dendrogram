@@ -94,7 +94,7 @@ def plot_astrodendro_tree_2D(ax, dendrogram, leaves, _plotter=None, plot_childre
             if isinstance(dendrogram.data, np.ndarray)
             else dendrogram.data.numpy()
         )
-        ax.imshow(data)
+        ax.imshow(data, cmap="Reds")
 
     for leaf in leaves:
         _plotter.plot_contour(ax, structure=leaf)
