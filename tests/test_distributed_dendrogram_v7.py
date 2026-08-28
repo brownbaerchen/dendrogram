@@ -195,7 +195,6 @@ def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix, show=Fa
     compare_dendrograms(d_ref, d)
 
 
-@pytest.mark.skip
 @pytest.mark.mpi(ranks=[2])
 @pytest.mark.parametrize("min_value", [2])
 @pytest.mark.parametrize("min_delta", [1])
@@ -237,6 +236,6 @@ if __name__ == "__main__":
     # test_1D(4, 32, 0.2, 0.2, "min", show=True, random=False)
     # test_1D_pseudo_parallel(4, 64, 0.1, 60, "min", show=True, random=False)
     # test_2D_pseudo_parallel(8, 64, 4, 0, 0, 0, show=True)
-    # test_2D(8, 64, 4, 00, 0.0, 0.0, show=False)
+    # test_2D(8, 32, 3, 00, 0.0, 0.0, show=False)
     test_example_pseudo_parallel(2, 2, 1, 10, show=True)
     # test_example(128, 2, 1, 10, show=False)

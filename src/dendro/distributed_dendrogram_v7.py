@@ -107,6 +107,7 @@ class DistributedDendrogramV7(Dendrogram):
 
                     coord = tuple(local_indices[rank][idx])
                     data_value = local_data_values[rank][idx]
+                    self.logger.debug(f"Rank {rank} merges value at {coord}")
 
                     self.merge_value(structures, coord, data_value, is_independent)
 
@@ -228,6 +229,10 @@ class DistributedDendrogramV7(Dendrogram):
                 else:
                     buff = None
 
+                # TODO: can I reset the caches more selectively?
+                for structure in structures.values():
+                    structure._reset_cache()
+
                 idx, values, indices, child_indices = ht.comm.bcast(
                     buff, root=changed_rank
                 )  # TODO: I dont know why ht.comm is needed here
@@ -276,6 +281,9 @@ class DistributedDendrogramV7(Dendrogram):
             #     breakpoint()
 
             num_iter += 1
+            self.logger.debug(
+                f"{len(local_argsort)} values left to merge after {num_iter} iterations"
+            )
 
         self.logger.debug(
             f"Found {len(structures)} structures, starting to make compatible with astrodendro"
@@ -436,10 +444,10 @@ class DistributedDendrogramV7(Dendrogram):
         adjacent = [
             int(self.index_map[c]) for c in indices_adjacent if self.index_map[c] > -1
         ]
-        # reset ancestor cache
-        for a in adjacent:
-            structures[a]._ancestor = None
-        adjacent = [structures[structures[a].ancestor.idx] for a in adjacent]
+        adjacent = [structures[a].ancestor for a in adjacent]
+        assert all([me.parent is None for me in adjacent]), (
+            "Failed to replace some structures with their ancestors"
+        )
         # Remove duplicates
         adjacent = _sorted_by_idx(set(adjacent))
 
@@ -456,6 +464,6 @@ class DistributedDendrogramV7(Dendrogram):
 
         _make_trunk(
             self,
-            {structure.idx: structure for structure in self.all_structures},
+            self._structures_dict,
             is_independent=is_independent,
         )
