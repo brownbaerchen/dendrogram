@@ -123,7 +123,9 @@ class DistributedDendrogramV7(Dendrogram):
         return self
 
     @staticmethod
-    def compute(data, min_value="min", min_delta=0, min_npix=0, is_independent=None):
+    def compute(
+        data, min_value="min", min_delta=0, min_npix=0, is_independent=None, **kwargs
+    ):
         self = DistributedDendrogramV7()
 
         if not isinstance(data, ht.DNDarray):
@@ -281,9 +283,14 @@ class DistributedDendrogramV7(Dendrogram):
             #     breakpoint()
 
             num_iter += 1
-            self.logger.debug(
-                f"{len(local_argsort)} values left to merge after {num_iter} iterations"
-            )
+            if num_iter % 100 == 0:
+                self.logger.info(
+                    f"{len(local_argsort)} values left to merge after {num_iter} iterations"
+                )
+            else:
+                self.logger.debug(
+                    f"{len(local_argsort)} values left to merge after {num_iter} iterations"
+                )
 
         self.logger.debug(
             f"Found {len(structures)} structures, starting to make compatible with astrodendro"
