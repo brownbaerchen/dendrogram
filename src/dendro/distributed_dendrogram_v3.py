@@ -46,9 +46,9 @@ class DistributedDendrogramV3(Dendrogram):
         #     return Dendrogram.compute(data.numpy(), **kwargs)
 
         local_dendrogram = self.compute_local_dendrogram(
-            min_npix=min_npix // self.comm.size,
+            min_npix=min_npix,
             min_value=min_value,
-            # min_delta=min_delta,
+            min_delta=min_delta,
             is_independent=is_independent,
             **kwargs,
         )
@@ -89,7 +89,7 @@ class DistributedDendrogramV3(Dendrogram):
     def _compute_single_local_dendrogram(self, local_data, split_dim=0, **kwargs):
 
         t0 = perf_counter()
-        local_dendrogram = Dendrogram.compute(local_data, **kwargs)
+        local_dendrogram = LocalDendrogram.compute(local_data, **kwargs)
         t1 = perf_counter()
         self.time_local_dendrogram = t1 - t0
         self.logger.info(
@@ -232,8 +232,9 @@ class DistributedDendrogramV3(Dendrogram):
         local_dendrograms = self.compute_local_dendrogram_pseudo_parallel(
             data=self.data,
             ntasks=ntasks,
-            min_npix=min_npix // ntasks,
+            min_npix=min_npix,
             min_value=min_value,
+            min_delta=min_delta,
         )
 
         all_structures = []
@@ -535,3 +536,277 @@ class DistributedDendrogramV3(Dendrogram):
             [merged_structures[i].ancestor.idx for i in adjacent_structure_indices]
         )
         return [merged_structures[i] for i in ancestor_indices]
+
+
+from astrodendro.dendrogram import _sorted_by_idx
+from astrodendro.structure import Structure as astrodendro_structure
+
+
+class LocalDendrogram(Dendrogram):
+    @staticmethod
+    def compute(
+        data,
+        min_value="min",
+        min_delta=0,
+        min_npix=0,
+        is_independent=None,
+        verbose=False,
+        neighbours=None,
+        wcs=None,
+    ):
+        """
+        Compute a dendrogram from a Numpy array.
+
+        Parameters
+        ----------
+        data : :class:`numpy.ndarray`
+            The n-dimensional array to compute the dendrogram for
+        min_value : float or "min", optional
+            The minimum data value to go down to when computing the
+            dendrogram. Values below this threshold will be ignored. Defaults
+            to the minimum value in the data.
+        min_delta : float, optional
+            The minimum height a leaf has to have in order to be considered an
+            independent entity.
+        min_npix : int, optional
+            The minimum number of pixels/values needed for a leaf to be considered
+            an independent entity.
+        is_independent : function or list of functions, optional
+            A custom function that can be specified that will determine if a
+            leaf can be treated as an independent entity. The signature of the
+            function should be ``func(structure, index=None, value=None)``
+            where ``structure`` is the structure under consideration, and
+            ``index`` and ``value`` are optionally the pixel that is causing
+            the structure to be considered for merging into/attaching to the
+            tree.
+
+            If multiple functions are provided as a list, they
+            are all applied when testing for independence.
+
+        neighbours : function, optional
+            A function that returns the list of neighbours to a given
+            location. Neighbours is called as ``neighbours(dendrogram, idx)``,
+            where ``idx`` is a tuple describing the n-dimensional location
+            of a pixel. It returns a list of N-dimensional locations of
+            neighbours. This function can implement optional adjacency logic.
+
+            .. note:: ``idx`` refers to location in a copy of the input data
+                       that has been padded with one element along each edge.
+
+        wcs : WCS object, optional
+            A WCS object that describes `data`. This is used in the
+            interactive viewer to properly display the data's coordinates
+            on the image axes. (Requires that `wcsaxes` is installed; see
+            http://wcsaxes.readthedocs.org/ for install instructions.)
+
+
+        Examples
+        --------
+
+        The following example demonstrates how to compute a dendrogram from an
+        dataset contained in a FITS file::
+
+            >>> from astropy.io import fits
+            >>> array = fits.getdata('observations.fits')
+            >>> from astrodendro import Dendrogram
+            >>> d = Dendrogram.compute(array)
+
+        Notes
+        -----
+        More information about the above parameters is available from the
+        online documentation at [www.dendrograms.org](www.dendrograms.org).
+        """
+        tests = [pruning.min_delta(min_delta), pruning.min_npix(min_npix)]
+        if is_independent is not None:
+            if hasattr(is_independent, "__iter__"):
+                tests.extend(is_independent)
+            else:
+                tests.append(is_independent)
+        is_independent = pruning.all_true(tests)
+        neighbours = neighbours or Dendrogram.neighbours
+
+        # Default min_val to the minimum in the data
+        if min_value == "min":
+            min_value = np.min(data[np.isfinite(data)]) - 1
+
+        self = Dendrogram()
+        self.data = data
+        self.n_dim = len(data.shape)
+        self.wcs = wcs
+        # For reference, store the parameters used:
+        self.params = dict(min_npix=min_npix, min_value=min_value, min_delta=min_delta)
+
+        # Create a list of all points in the cube above min_value
+        keep = self.data > min_value
+        data_values = self.data[keep]
+        indices = np.vstack(np.where(keep)).transpose()
+
+        if verbose:
+            print(
+                "Generating dendrogram using {:,} of {:,} pixels ({}% of data)".format(
+                    data_values.size,
+                    self.data.size,
+                    (100 * data_values.size / self.data.size),
+                )
+            )
+            progress_bar = AnimatedProgressBar(
+                end=max(data_values.size, 1), width=40, fill="=", blank=" "
+            )
+
+        # Define index array indicating what structure each cell is part of
+        # We expand each dimension by one, so the last value of each
+        # index (accessed with e.g. [nx,#,#] or [-1,#,#]) is always zero
+        # This permits an optimization below when finding adjacent structures
+        self.index_map = -np.ones(np.add(self.data.shape, 1), dtype=np.int32)
+
+        # Dictionary of currently-defined structures:
+        structures = {}
+
+        # Loop from largest to smallest data_value value. Each time, check if
+        # the pixel connects to any existing leaf. Otherwise, create new leaf.
+        count = 0
+
+        for i in np.argsort(data_values)[::-1]:
+
+            def next_idx():
+                return i + 1
+                # Generate IDs index i. We add one to avoid ID 0
+
+            data_value = data_values[i]
+            coord = tuple(indices[i])
+
+            # Print stats
+            count += 1
+            if verbose and (count % 100 == 0):
+                progress_bar + 100
+                progress_bar.show_progress()
+
+            # Check if point is adjacent to any leaf
+            # We don't worry about the edges, because overflow or underflow n
+            # any one dimension will always land on an extra "padding" cell
+            # with value zero added above when index_map was created
+
+            indices_adjacent = neighbours(self, indices[i])
+            adjacent = [
+                self.index_map[c] for c in indices_adjacent if self.index_map[c] > -1
+            ]
+
+            # Replace adjacent elements by its ancestor
+            adjacent = [structures[a].ancestor for a in adjacent]
+
+            # Remove duplicates
+            adjacent = _sorted_by_idx(set(adjacent))
+
+            # What happens next depends on how many unique adjacent structures there are
+
+            if not adjacent:  # No adjacent structures;  Create new leaf:
+                # Set absolute index of the new element
+                idx = next_idx()
+
+                # Create leaf
+                leaf = astrodendro_structure(
+                    coord, data_value, idx=idx, dendrogram=self
+                )
+
+                # Add leaf to overall list
+                structures[idx] = leaf
+
+                # Set absolute index of pixel in index map
+                self.index_map[coord] = idx
+
+            elif len(adjacent) == 1:  # Add to existing leaf or branch
+                # Add point to structure
+                adjacent[0]._add_pixel(coord, data_value)
+
+                # Set absolute index of pixel in index map
+                self.index_map[coord] = adjacent[0].idx
+
+            else:  # Merge leaves
+                # At this stage, the adjacent structures might consist of an
+                # arbitrary number of leaves and branches.
+
+                # Find all leaves that are not important enough to be
+                # kept separate. These leaves will now be treated the
+                # same as the pixel under consideration
+                merge = [
+                    structure
+                    for structure in adjacent
+                    if structure.is_leaf
+                    and (
+                        structure.vmax == data_value
+                        or not is_independent(structure, index=coord, value=data_value)
+                    )
+                ]
+
+                # Remove merges from list of adjacent structures
+                for structure in merge:
+                    adjacent.remove(structure)
+
+                # Now, figure out what object this pixel belongs to
+                # How many significant adjacent structures are left?
+
+                if not adjacent:  # if len(adjacent) == 0:
+                    # There are no separate leaves left (and no branches), so pick the
+                    # first one as the reference and merge all the others onto it
+                    belongs_to = merge.pop()
+                    belongs_to._add_pixel(coord, data_value)
+                elif len(adjacent) == 1:
+                    # There is one significant adjacent leaf/branch left.
+                    belongs_to = adjacent[0]
+                    belongs_to._add_pixel(coord, data_value)
+                else:
+                    # Create a branch
+                    belongs_to = astrodendro_structure(
+                        coord,
+                        data_value,
+                        children=adjacent,
+                        idx=next_idx(),
+                        dendrogram=self,
+                    )
+                    # Add branch to overall list
+                    structures[belongs_to.idx] = belongs_to
+
+                # Set absolute index of pixel in index map
+                self.index_map[coord] = belongs_to.idx
+
+                # Add all insignificant leaves in 'merge' to the same object as this pixel:
+                for m in merge:
+                    # print "Merging leaf %i onto leaf %i" % (i, idx)
+                    # Remove leaf
+                    structures.pop(m.idx)
+                    # Merge the insignificant structure that this pixel now belongs to:
+                    belongs_to._merge(m)
+                    # Update index map
+                    m._fill_footprint(self.index_map, belongs_to.idx)
+
+        if verbose:
+            progress_bar.progress = 100  # Done
+            progress_bar.show_progress()
+            print("")  # newline
+
+        # Create trunk from objects with no ancestors
+        def dummy_is_independent(*args, **kwargs):
+            return True
+
+        _make_trunk(self, structures, dummy_is_independent)
+        # _make_trunk(self, structures, is_independent)
+
+        # Save a list of all structures accessible by ID
+        self._structures_dict = {}
+
+        # Re-assign idx and update index map
+        sorted_structures = sorted(self, key=lambda s: s.smallest_index)
+        for idx, s in enumerate(sorted_structures):
+            s.idx = idx
+            s._fill_footprint(self.index_map, idx, recursive=False)
+            self._structures_dict[idx] = s
+
+        # Remove border from index map
+        s = tuple(slice(0, s, 1) for s in data.shape)
+        self.index_map = self.index_map[s]
+
+        # Add dendrogram index
+        self._index()
+
+        # Return the newly-created dendrogram:
+        return self
