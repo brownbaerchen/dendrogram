@@ -283,14 +283,11 @@ class DistributedDendrogramV7(Dendrogram):
             #     breakpoint()
 
             num_iter += 1
-            if num_iter % 100 == 0:
-                self.logger.info(
-                    f"{len(local_argsort)} values left to merge after {num_iter} iterations"
-                )
+            msg = f"Merged {len(local_data_values) - len(local_argsort)} values and {len(local_argsort)} are left to merge after {num_iter} iterations"
+            if num_iter % 1000 == 0:
+                self.logger.info(msg)
             else:
-                self.logger.debug(
-                    f"{len(local_argsort)} values left to merge after {num_iter} iterations"
-                )
+                self.logger.debug(msg)
 
         self.logger.debug(
             f"Found {len(structures)} structures, starting to make compatible with astrodendro"
