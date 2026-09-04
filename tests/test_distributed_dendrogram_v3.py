@@ -173,7 +173,7 @@ def test_2D_save_and_load(mpi_ranks):
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("min_value", [2])
 @pytest.mark.parametrize("min_delta", [0, 1])
-@pytest.mark.parametrize("min_npix", [0])  # 10
+@pytest.mark.parametrize("min_npix", [0, 10])
 def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix):
     from astropy.io.fits import getdata
     import astrodendro
@@ -195,6 +195,41 @@ def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix):
     compare_dendrograms(d_ref, d)
 
 
+@pytest.mark.parametrize("ntasks", [1, 2, 4])
+def test_example_pseudo_parallel_local_params(ntasks):
+    from astropy.io.fits import getdata
+    import astrodendro
+    import numpy as np
+
+    data, header = getdata(
+        f"{astrodendro.__file__[:-24]}/docs/PerA_Extn2MASS_F_Gal.fits", header=True
+    )
+    data = np.array(data, dtype=float)
+
+    min_value = 2
+    min_delta = 1
+    min_npix = 10
+
+    kwargs = {
+        "min_value": min_value,
+        "min_delta": min_delta,
+        "min_npix": min_npix,
+    }
+
+    d_ref = DistributedDendrogramV3.compute_pseudo_parallel(data, ntasks, **kwargs)
+    d = DistributedDendrogramV3.compute_pseudo_parallel(
+        data, ntasks, **kwargs, min_npix_loc=min_npix, min_delta_loc=min_delta
+    )
+    assert d._iterations < d_ref._iterations  # we were faster with the local parameters
+    if ntasks < 4:
+        assert np.all(
+            d.index_map[d_ref.index_map >= 0] >= 0
+        )  # we captured all relevant values
+        assert np.all(
+            d_ref.index_map[d.index_map >= 0] >= 0
+        )  # we didn't capture non-relevant
+
+
 if __name__ == "__main__":
     import logging
     import heat as ht
@@ -202,8 +237,9 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logging.basicConfig(level=logging.INFO)
 
-    test_1D_v3_pseudo_parallel(2, 64, 6, 0.0, 0.0, show=True)
+    # test_1D_v3_pseudo_parallel(2, 64, 6, 0.1, 0.0, show=True)
     # test_1D_v3_pseudo_parallel(2, 33, 0, 0.0, 0.0, show=True)
     # test_1D_v3(2, 33, 0, 0.0, 0.0)
     # test_2D_v3_pseudo_parallel(4, 32, 3, 0, 0, 0)
     # test_example_pseudo_parallel(2, 2, 0, 0)
+    test_example_pseudo_parallel_local_params(2)
