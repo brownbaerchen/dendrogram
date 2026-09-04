@@ -173,7 +173,7 @@ def test_2D_save_and_load(mpi_ranks):
 @pytest.mark.parametrize("ntasks", [1, 2, 4])
 @pytest.mark.parametrize("min_value", [2])
 @pytest.mark.parametrize("min_delta", [0, 1])
-@pytest.mark.parametrize("min_npix", [0])  # 10
+@pytest.mark.parametrize("min_npix", [0, 10])
 def test_example_pseudo_parallel(ntasks, min_value, min_delta, min_npix):
     from astropy.io.fits import getdata
     import astrodendro
