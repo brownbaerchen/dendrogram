@@ -114,6 +114,9 @@ def compute_dendrogram(args, dendrogram_args):
             from dendro.distributed_dendrogram_v3 import (
                 DistributedDendrogramV3 as Dendrogram,
             )
+
+            dendrogram_args["min_npix_loc"] = dendrogram_args["min_npix"]
+            dendrogram_args["min_delta_loc"] = dendrogram_args["min_delta"]
         elif args["version"] == "v7":
             from dendro.distributed_dendrogram_v7 import (
                 DistributedDendrogramV7 as Dendrogram,
