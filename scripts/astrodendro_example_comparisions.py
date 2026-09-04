@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 
 from astrodendro.dendrogram import Dendrogram
 from dendro import DistributedDendrogram
+from dendro.utils import compare_dendrograms, get_deviation_level
 
 
 def get_data_and_params():
@@ -36,8 +37,6 @@ def compare_examples(ntasks=4):
         ntasks=ntasks, **params, min_npix_loc=params["min_npix"]
     )
 
-    from dendro.utils import compare_dendrograms
-
     compare_dendrograms(d_astrodendro, d_exact)
 
     titles = ["astrodrendro", "exact", "intermediate", "fast"]
@@ -55,8 +54,9 @@ def compare_examples(ntasks=4):
                 rasterized=True,
             )
             if hasattr(dendrogram, "_iterations") and j == 0:
+                deviation_level = get_deviation_level(d_astrodendro, dendrogram)
                 print(
-                    f"{titles[i]} needed {dendrogram._iterations} iterations in the merging step"
+                    f"{titles[i]} needed {dendrogram._iterations} iterations in the merging step and deviates on level {deviation_level}"
                 )
 
             plotter = dendrogram.plotter()
@@ -74,6 +74,65 @@ def compare_examples(ntasks=4):
     fig.savefig("compare_astrodendro_example_v3.pdf", dpi=300, bbox_inches="tight")
 
 
+def iterations_heatmap(ntasks=4, steps_min_delta=11, steps_min_npix=11):
+    params = get_data_and_params()
+
+    min_npix_loc_vals = np.linspace(0, params["min_npix"], steps_min_npix).astype(int)
+    min_delta_loc_vals = (
+        np.linspace(0, params["min_delta"], steps_min_delta) * 10
+    ).astype(int) / 10
+
+    iterations = np.zeros((steps_min_npix, steps_min_delta), int)
+    exact = np.zeros((steps_min_npix, steps_min_delta), int)
+
+    d_astrodendro = Dendrogram.compute(**params, verbose=True)
+
+    for i in range(steps_min_npix):
+        for j in range(steps_min_delta):
+            d = DistributedDendrogram.compute_pseudo_parallel(
+                **params,
+                ntasks=ntasks,
+                min_npix_loc=min_npix_loc_vals[i],
+                min_delta_loc=min_delta_loc_vals[j],
+            )
+            iterations[i, j] = d._iterations
+            exact[i, j] = compare_dendrograms(d_astrodendro, d, raise_error=False)
+            print(
+                f"min_npix_loc={min_npix_loc_vals[i]:.2f} and min_delta_loc={min_delta_loc_vals[j]:.2f}: {iterations[i, j]} iterations, exact: {exact[i, j]}"
+            )
+
+    exact_iter = iterations[0, 0]
+    iterations -= exact_iter
+
+    fig, ax = plt.subplots()
+    ax.imshow(iterations, cmap="RdYlGn_r")
+
+    # Show all ticks and label them with the respective list entries
+    ax.set_xticks(
+        range(steps_min_delta),
+        labels=min_delta_loc_vals,
+        rotation=45,
+        rotation_mode="xtick",
+    )
+    ax.set_yticks(range(steps_min_npix), labels=min_npix_loc_vals)
+
+    # Loop over data dimensions and create text annotations.
+    for i in range(steps_min_npix):
+        for j in range(steps_min_delta):
+            color = "black" if 0 > iterations[i, j] > -300 else "white"
+            ax.text(j, i, iterations[i, j], ha="center", va="center", color=color)
+
+    ax.set_xlabel("min_delta_loc")
+    ax.set_ylabel("min_npix_loc")
+    ax.set_title(f"Iterations in merge step - {exact_iter}")
+
+    fig.savefig(
+        "compare_astrodendro_example_v3_heatmap.pdf", dpi=300, bbox_inches="tight"
+    )
+    plt.show()
+
+
 if __name__ == "__main__":
     compare_examples()
+    # iterations_heatmap()#steps_min_delta=3, steps_min_npix=4)
     plt.show()

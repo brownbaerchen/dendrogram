@@ -36,14 +36,20 @@ def get_2d_data(n, n_peaks=-1):
     return X, Y, data
 
 
-def compare_dendrograms(ref_dendrogram, other_dendrogram):
+def compare_dendrograms(ref_dendrogram, other_dendrogram, raise_error=True):
     from dendro.distributed_dendrogram import shares_row
 
     n_structures1 = len([me for me in ref_dendrogram.all_structures])
     n_structures2 = len([me for me in other_dendrogram.all_structures])
-    assert n_structures1 == n_structures2, (
-        f"Got {n_structures1} structures in reference dendrogram, but {n_structures2} in other one"
-    )
+    try:
+        assert n_structures1 == n_structures2, (
+            f"Got {n_structures1} structures in reference dendrogram, but {n_structures2} in other one"
+        )
+    except AssertionError as e:
+        if raise_error:
+            raise e
+        else:
+            return False
 
     for structure in ref_dendrogram.all_structures:
         corresponds_to = [
@@ -53,19 +59,53 @@ def compare_dendrograms(ref_dendrogram, other_dendrogram):
                 shares_row(np.array(structure._indices), np.array(ref_struct._indices))
             )
         ]
-        assert len(corresponds_to) == 1, (
-            f"Structure {structure.idx} in reference dendrogram corresponds to {len(corresponds_to)} structures {[me.idx for me in corresponds_to]} in the merged one"
-        )
-        assert len(np.unique(corresponds_to[0]._indices, axis=0)) == len(
-            corresponds_to[0]._indices
-        ), f"Structure {corresponds_to[0].idx} has non-unique indices"
-        assert len(structure._indices) == len(corresponds_to[0]._indices), (
-            f"Structure {corresponds_to[0].idx} has different length from reference structure {structure.idx}"
-        )
-        assert np.allclose(
-            np.sort(np.array(structure._indices).flatten()),
-            np.sort(np.array(corresponds_to[0]._indices).flatten()),
-        ), r"Indices don\'t match between merged and reference structure"
+        try:
+            assert len(corresponds_to) == 1, (
+                f"Structure {structure.idx} in reference dendrogram corresponds to {len(corresponds_to)} structures {[me.idx for me in corresponds_to]} in the merged one"
+            )
+            assert len(np.unique(corresponds_to[0]._indices, axis=0)) == len(
+                corresponds_to[0]._indices
+            ), f"Structure {corresponds_to[0].idx} has non-unique indices"
+            assert len(structure._indices) == len(corresponds_to[0]._indices), (
+                f"Structure {corresponds_to[0].idx} has different length from reference structure {structure.idx}"
+            )
+            assert np.allclose(
+                np.sort(np.array(structure._indices).flatten()),
+                np.sort(np.array(corresponds_to[0]._indices).flatten()),
+            ), r"Indices don\'t match between merged and reference structure"
+        except AssertionError as e:
+            if raise_error:
+                raise e
+            else:
+                return False
+    return True
+
+
+def get_deviation_level(ref_dendrogram, other_dendrogram):
+    def _get_structures_on_level(dendrogram, level):
+        return [structure for structure in dendrogram if structure.level == level]
+
+    level = 0
+    while True:
+        ref_structs = _get_structures_on_level(ref_dendrogram, level)
+        other_structs = _get_structures_on_level(other_dendrogram, level)
+
+        if len(ref_structs) != len(other_structs):
+            return level
+        elif len(ref_structs) == 0:
+            return -1
+
+        for ref_struct in ref_structs:
+            mask = ref_dendrogram.index_map == ref_struct.idx
+            if len(np.unique(other_dendrogram.index_map[mask])) > 1:
+                return level
+
+        for other_struct in other_structs:
+            mask = other_dendrogram.index_map == other_struct.idx
+            if len(np.unique(ref_dendrogram.index_map[mask])) > 1:
+                return level
+
+        level += 1
 
 
 def plot_astrodendro_leaves(ax, x, data, leaves, level=0, plot_children=True):
