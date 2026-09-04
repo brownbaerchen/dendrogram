@@ -86,7 +86,15 @@ def plot_astrodendro_leaves(ax, x, data, leaves, level=0, plot_children=True):
             )
 
 
-def plot_astrodendro_tree_2D(ax, dendrogram, leaves, _plotter=None, plot_children=True):
+def plot_astrodendro_tree_2D(
+    ax,
+    dendrogram,
+    leaves,
+    _plotter=None,
+    plot_children=True,
+    min_level=0,
+    max_level=np.inf,
+):
     if _plotter is None:
         _plotter = dendrogram.plotter()
         data = (
@@ -97,9 +105,17 @@ def plot_astrodendro_tree_2D(ax, dendrogram, leaves, _plotter=None, plot_childre
         ax.imshow(data, cmap="Reds")
 
     for leaf in leaves:
-        _plotter.plot_contour(ax, structure=leaf)
-        if plot_children:
-            plot_astrodendro_tree_2D(ax, dendrogram, leaf.children, _plotter=_plotter)
+        if leaf.level >= min_level:
+            _plotter.plot_contour(ax, structure=leaf)
+        if plot_children and leaf.level <= max_level:
+            plot_astrodendro_tree_2D(
+                ax,
+                dendrogram,
+                leaf.children,
+                _plotter=_plotter,
+                min_level=min_level,
+                max_level=max_level,
+            )
 
 
 def plot(ax, dendrogram, leaves, plot_children=True):
