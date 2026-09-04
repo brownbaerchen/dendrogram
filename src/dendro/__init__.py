@@ -1,0 +1,3 @@
+from .distributed_dendrogram_v3 import DistributedDendrogramV3
+
+DistributedDendrogram = DistributedDendrogramV3
