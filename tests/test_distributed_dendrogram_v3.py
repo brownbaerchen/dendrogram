@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 
 from astrodendro.dendrogram import Dendrogram
 
-from dendro.distributed_dendrogram_v3 import DistributedDendrogramV3
+from dendro import DistributedDendrogram as DistributedDendrogramV3
 from dendro.utils import compare_dendrograms
 
 
