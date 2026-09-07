@@ -90,6 +90,9 @@ class DistributedDendrogramV3(Dendrogram):
             {i: structure for i, structure in enumerate(self.all_structures)},
             is_independent,
         )
+        self._structures_dict = {
+            structure.idx: structure for structure in self.all_structures
+        }
 
         t1 = perf_counter()
         self.logger.info(
