@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 
 from astrodendro.dendrogram import Dendrogram
 from dendro import DistributedDendrogram
-from dendro.utils import compare_dendrograms, get_deviation_level
+from dendro.utils import get_deviation_level
+from dendro.analysis import compare_dendrograms
 
 
 def get_data_and_params():
@@ -37,13 +38,17 @@ def compare_examples(ntasks=4):
         ntasks=ntasks, **params, min_npix_loc=params["min_npix"]
     )
 
-    compare_dendrograms(d_astrodendro, d_exact)
+    overlap_fig, overlap_ax = plt.subplots()
 
     titles = ["astrodrendro", "exact", "intermediate", "fast"]
     for j in [0, 4, 8]:
         for i, dendrogram in enumerate(
             [d_astrodendro, d_exact, d_intermediate, d_fast]
         ):
+            if j == 0 and dendrogram is not d_astrodendro:  # plot overlap
+                overlap = compare_dendrograms(d_astrodendro, dendrogram)
+                overlap_ax.plot(overlap.keys(), overlap.values(), label=f"{titles[i]}")
+
             ax = axs[i]
             ax.imshow(
                 params["data"],
@@ -72,6 +77,13 @@ def compare_examples(ntasks=4):
             ax.set_title(titles[i])
     fig.tight_layout()
     fig.savefig("compare_astrodendro_example_v3.pdf", dpi=300, bbox_inches="tight")
+
+    overlap_ax.set_xlabel("level")
+    overlap_ax.set_ylabel("overlap")
+    overlap_ax.legend(frameon=False)
+    overlap_fig.savefig(
+        "compare_astrodendro_example_v3_overlap.pdf", dpi=300, bbox_inches="tight"
+    )
 
 
 def iterations_heatmap(ntasks=4, steps_min_delta=11, steps_min_npix=11):
