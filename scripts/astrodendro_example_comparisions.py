@@ -34,7 +34,7 @@ def compare_examples(ntasks=4):
         ntasks=ntasks, **params, min_npix_loc=5
     )
     d_fast = DistributedDendrogram.compute_pseudo_parallel(
-        ntasks=ntasks, **params, min_npix_loc=params["min_npix"]
+        ntasks=ntasks, **params, min_npix_loc=params["min_npix"], min_delta_loc=0.6
     )
 
     compare_dendrograms(d_astrodendro, d_exact)
@@ -69,7 +69,10 @@ def compare_examples(ntasks=4):
                     ax, structure=structure.idx, colors=[colors.get(j, "green")]
                 )
 
-            ax.set_title(titles[i])
+            if hasattr(dendrogram, "_iterations"):
+                ax.set_title(f"{titles[i]}\n{dendrogram._iterations} merge iter")
+            else:
+                ax.set_title(f"{titles[i]}")
     fig.tight_layout()
     fig.savefig("compare_astrodendro_example_v3.pdf", dpi=300, bbox_inches="tight")
 
