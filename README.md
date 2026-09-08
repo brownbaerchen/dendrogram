@@ -5,22 +5,71 @@
 This repository tracks progress for making dendrograms with [Heat](https://github.com/helmholtz-analytics/heat).
 The goal is to compute dendrograms like in [Astrodendro](https://github.com/dendrograms/astrodendro), but built on heat to be faster and parallel.
 
-## Roadmap
- - [ ] Develop concepts
-     - [ ] Define I/O
-     - [ ] Find vectorized algorithms for clustering local data
-     - [ ] Compute global clustering by merging local clusters
- - [ ] Develop implementations
-     - [ ] Implement hierarchical clustering in heat
-     - [ ] Implement interface to Astrodendro
-
 ## Setup
-In order to install all the necessary dependencies, please install micromamba and then run:
+In order to install all the necessary dependencies, please install micromamba and then run (in this directory):
 
 ```bash
 micromamba env create -f environment.yml
 micromamba activate dendro
 pip install -e .
+```
+
+Feel free to substitute micromamba for your favorite package manager such as conda.
+
+## Compute a distributed dendrogram
+Find below the code from the file ``examples/getting_started.py``, which shows you everything you need to use the currently best performing distributed dendrogram implementation.
+
+```python
+import numpy as np
+import heat as ht
+import logging
+
+from astrodendro.dendrogram import Dendrogram
+from dendro import DistributedDendrogram
+
+# get some random sample data
+ht.random.seed(7353)
+data_ht = ht.random.rand(32, 64, split=0)
+data_np = data_ht.numpy()
+
+# if you load your own data, make sure to cast it to heat like
+# data_ht = ht.array(data_np, split=0)
+
+# define parameters for dendrogram computation
+params = {'min_npix': 3, 'min_delta':1e-2, 'min_value': 1e-1}
+
+# compute astrodendro dendrogram as normal
+d_astrodendro = Dendrogram.compute(data_np, **params)
+
+# now, on to the distributed dendrogram!
+# first, cast data to heat array and define split dimension
+
+# define extra parameters for the local dendrogram computation in distributed dendrogram
+extra_params = {'min_npix_loc': params['min_npix'], 'min_delta_loc': params['min_delta']}
+
+# comment the below line to get no output or use `logging.INFO` for some output or `logging.DEBUG` for all the output
+logger = logging.getLogger("Dendrogram").setLevel(logging.INFO)
+
+# simulate the parallel dendrogram computation (on non-distributed data)
+d_pseudo_parallel = DistributedDendrogram.compute_pseudo_parallel(data_np, ntasks=4, **params, **extra_params)
+
+# actually compute in parallel
+# the number of tasks is determined in the command line via `mpirun -np <number of tasks> getting_started.py`
+d_parallel = DistributedDendrogram.compute(data_ht, **params, **extra_params)
+
+# all tasks have the same dendrograms now, subsequent processing / saving to file should happen on a single task only
+if ht.comm.rank == 0:
+    import matplotlib.pyplot as plt
+    from dendro.analysis import compare_dendrograms
+
+    fig, ax = plt.subplots()
+    for label, d in zip(['pseudo parallel', f'{ht.comm.size} tasks'], [d_pseudo_parallel, d_parallel]):
+        overlap = compare_dendrograms(d_astrodendro, d)
+        ax.plot(overlap.keys(), overlap.values(), label=label, ls='-' if label=='pseudo parallel' else '--')
+    ax.set_xlabel('level')
+    ax.set_ylabel('overlap')
+    ax.legend()
+    plt.show()
 ```
 
 ## Generate Jupyter notebooks from scripts

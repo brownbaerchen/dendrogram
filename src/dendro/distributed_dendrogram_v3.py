@@ -69,7 +69,7 @@ class DistributedDendrogramV3(Dendrogram):
     def make_output_astrodendro_compatible(self, is_independent):
 
         t0 = perf_counter()
-        self.logger.info("Start making compatible with astrodendro")
+        self.logger.debug("Start making compatible with astrodendro")
 
         if isinstance(self.data, ht.DNDarray):
             self.data = self.data.numpy()
@@ -92,7 +92,7 @@ class DistributedDendrogramV3(Dendrogram):
         }
 
         t1 = perf_counter()
-        self.logger.info(
+        self.logger.debug(
             f"Finished making compatible with astrodendro after {t1 - t0:.2e}s"
         )
 
@@ -153,7 +153,7 @@ class DistributedDendrogramV3(Dendrogram):
                     structure._vmax = np.max(structure._values)
 
         t1 = perf_counter()
-        self.logger.info(
+        self.logger.debug(
             f"Isolated {len(local_dendrogram._structures_dict) - len_before_border_removal} border structures in {t1 - t0:.2e}s"
         )
 
@@ -163,14 +163,14 @@ class DistributedDendrogramV3(Dendrogram):
         data = self.data
         comm = data.comm
 
-        self.logger.info(
+        self.logger.debug(
             f"Start computing local dendrogram with local data of shape {data.lshape}"
         )
         local_dendrogram = self._compute_single_local_dendrogram(
             data.larray.numpy(), split_dim=data.split, **kwargs
         )
 
-        self.logger.info("Adding offsets to structures")
+        self.logger.debug("Adding offsets to structures")
         if data.is_distributed():
             # add offsets to local indices
             _, offsets = data.counts_displs()
@@ -181,7 +181,7 @@ class DistributedDendrogramV3(Dendrogram):
         else:
             for structure in local_dendrogram.all_structures:
                 structure._indices = np.array(structure._indices)
-        self.logger.info("Finished adding offsets to structures")
+        self.logger.debug("Finished adding offsets to structures")
 
         return local_dendrogram
 
@@ -207,7 +207,7 @@ class DistributedDendrogramV3(Dendrogram):
         return local_dendrograms
 
     def communicate_structures(self, local_dendrogram):
-        self.logger.info(
+        self.logger.debug(
             f"Starting to communicate {len(local_dendrogram)} local structures"
         )
         t0 = perf_counter()
@@ -230,7 +230,7 @@ class DistributedDendrogramV3(Dendrogram):
                     structures += [Structure(idx=me[0], indices=me[1], values=me[2])]
 
         t1 = perf_counter()
-        self.logger.info(f"Finished communicating structures in {t1 - t0:.2e}s")
+        self.logger.debug(f"Finished communicating structures in {t1 - t0:.2e}s")
         return structures
 
     @staticmethod
@@ -281,7 +281,7 @@ class DistributedDendrogramV3(Dendrogram):
         merge_into._vmax = max([merge_into._vmax, to_merge._vmax])
         merge_into._smallest_index = np.min(merge_into._indices)
         self.index_map[*to_merge._indices.T] = merge_into.idx
-        self.logger.info(
+        self.logger.debug(
             f"Merged {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} into existing structure {merge_into.idx}, which now has {len(merge_into._values)} values between {merge_into._vmin:.2f} and {merge_into._vmax:.2f}"
         )
 
@@ -306,7 +306,7 @@ class DistributedDendrogramV3(Dendrogram):
         structure._vmin = np.min(structure._values)
         structure._vmax = np.max(structure._values)
 
-        self.logger.info(
+        self.logger.debug(
             f"Split structure {structure.idx} at {split_at:.2f}. Remaining top part has {len(structure._values)} values between {structure._vmin:.2f} and {structure._vmax:.2f} and {len(structure._children)} children, bottom part has {len(bottom_part._values)} values between {bottom_part._vmin:.2f} to {bottom_part._vmax:.2f}."
         )
         return structure, bottom_part
@@ -334,7 +334,7 @@ class DistributedDendrogramV3(Dendrogram):
             structures = DistributedDendrogramV3.insert_structure_within(
                 structures, to_insert
             )
-        DistributedDendrogramV3.logger.info(
+        DistributedDendrogramV3.logger.debug(
             f"Inserted structure with {len(to_insert._values)} values between {to_insert._vmin:.2f} and {to_insert._vmax:.2f} into list of {len(structures)} remaining structures."
         )
         return structures
@@ -379,7 +379,7 @@ class DistributedDendrogramV3(Dendrogram):
             )
             self.index_map[*leaf._indices.T] = leaf.idx
             merged_structures.append(leaf)
-            self.logger.info(
+            self.logger.debug(
                 f"Created new leaf with index {leaf.idx} and {len(leaf._values)} values between {leaf._vmin:.2f} and {leaf._vmax:.2f}."
             )
         elif len(adjacent_structures) == 1:  # merge into existing structure
@@ -406,7 +406,7 @@ class DistributedDendrogramV3(Dendrogram):
                 adjacent_structures.remove(structure)
 
             if len(merge) > 0:
-                self.logger.info(
+                self.logger.debug(
                     f"Structures {[me.idx for me in merge]} are insignificant. {len(adjacent_structures)} adjacent structures left"
                 )
 
@@ -427,13 +427,13 @@ class DistributedDendrogramV3(Dendrogram):
                 belongs_to = branch
                 self.index_map[*branch._indices.T] = branch.idx
                 merged_structures.append(branch)
-                self.logger.info(
+                self.logger.debug(
                     f"Created branch with index {branch.idx} and {len(branch._values)} values between {branch._vmin:.2f} and {branch._vmax:.2f} and {len(branch._children)} children : {[me.idx for me in branch._children]}."
                 )
 
             # merge insignificant structures
             if len(merge) > 0:
-                self.logger.info(
+                self.logger.debug(
                     f"Merging insignificant structure(s) {[m.idx for m in merge]} into structure {belongs_to.idx}"
                 )
             for m in merge:
@@ -473,7 +473,7 @@ class DistributedDendrogramV3(Dendrogram):
         while len(structures) > 0:
             self._iterations += 1
             self.logger.info(
-                f"--- Iteration {self._iterations}. Merged {len(merged_structures)}, {len(structures)} left."
+                f"--- Iteration {self._iterations:d}: Merged {len(merged_structures)}, {len(structures)} left."
             )
 
             to_merge = structures.pop(0)
@@ -483,7 +483,7 @@ class DistributedDendrogramV3(Dendrogram):
                 to_merge, merged_structures, self.index_map
             )
 
-            self.logger.info(
+            self.logger.debug(
                 f"Merging structure with {len(to_merge._values)} values between {to_merge._vmin:.2f} and {to_merge._vmax:.2f} with {len(adjacent_structures)} adjacent structures: {[me.idx for me in adjacent_structures]}."
             )
 
