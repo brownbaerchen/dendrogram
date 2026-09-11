@@ -19,7 +19,6 @@ params = {"min_npix": 3, "min_delta": 1e-2, "min_value": 1e-1}
 d_astrodendro = Dendrogram.compute(data_np, **params)
 
 # now, on to the distributed dendrogram!
-# first, cast data to heat array and define split dimension
 
 # define extra parameters for the local dendrogram computation in distributed dendrogram
 extra_params = {
