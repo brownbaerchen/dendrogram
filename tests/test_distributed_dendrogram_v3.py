@@ -218,7 +218,10 @@ def test_example_pseudo_parallel_local_params(ntasks):
 
     d_ref = DistributedDendrogramV3.compute_pseudo_parallel(data, ntasks, **kwargs)
     d = DistributedDendrogramV3.compute_pseudo_parallel(
-        data, ntasks, **kwargs, min_npix_loc=min_npix, min_delta_loc=min_delta
+        data,
+        ntasks,
+        **kwargs,
+        min_npix_loc=min_npix,  # , min_delta_loc=min_delta
     )
     assert d._iterations < d_ref._iterations  # we were faster with the local parameters
     if ntasks < 4:
@@ -237,7 +240,7 @@ if __name__ == "__main__":
     if ht.comm.rank == 0:
         logging.basicConfig(level=logging.INFO)
 
-    # test_1D_v3_pseudo_parallel(2, 32, 6, 0.0, 0.0, show=True)
+    # test_1D_v3_pseudo_parallel(2, 64, 6, 0.1, 0.0, show=True)
     # test_1D_v3_pseudo_parallel(2, 33, 0, 0.0, 0.0, show=True)
     # test_1D_v3(2, 33, 0, 0.0, 0.0)
     # test_2D_v3_pseudo_parallel(4, 32, 3, 0, 0, 0)
